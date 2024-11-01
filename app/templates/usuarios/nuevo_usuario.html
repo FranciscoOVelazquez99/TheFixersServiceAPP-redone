@@ -1,0 +1,69 @@
+{% extends "./base.html" %} 
+
+<!-- Titulo de la seccion -->
+{% block PageName %}<h1>Registrar nuevo usuario</h1> {% endblock %}
+<!-- FIN del Titulo de la seccion -->
+
+
+{% block menuUsuarios %} active {% endblock %}
+    {% block menuUsuariosSubCrear %} active {% endblock %}
+  
+    
+
+{% block body %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('main.register') }}" enctype="multipart/form-data">
+            {{ form.csrf_token }}
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Nombre de Usuario</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Contraseña</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="rol" class="form-label">Rol</label>
+                        <select class="form-select" id="rol" name="rol" required>
+                            <option value="ADMIN">Administrador</option>
+                            <option value="ADMINISTRACION">Administración</option>
+                            <option value="SUPERVISOR">Supervisor</option>
+                            <option value="OPERADOR">Operador</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3 text-center">
+                        <label for="avatar" class="form-label">Avatar</label>
+                        <div class="avatar-preview mb-2">
+                            <img id="avatar-preview" src="/static/img/profile.jpg" class="rounded-circle" style="width: 150px; height: 150px; object-fit: cover;">
+                        </div>
+                        <input type="file" class="form-control" id="avatar" name="avatar" accept="image/*">
+                    </div>
+                </div>
+            </div>
+            <div class="text-end">
+                <button type="submit" class="btn btn-primary">Registrar Usuario</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+document.getElementById('avatar').onchange = function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('avatar-preview').src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+</script>
+{% endblock %}

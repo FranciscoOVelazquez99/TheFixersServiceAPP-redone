@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link href="{{ url_for('static', filename='img/FixLogo.png') }}" rel="icon">
+
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+
+    <link rel="stylesheet" type="text/css" href="{{url_for('static', filename='css/login.css')}}"/>
+
+    <title>Inicio de sesión</title>
+  
+</head>
+<body>
+    
+    <form method="POST" action="{{ url_for('main.login') }}" class="login-form">
+        {{ form.hidden_tag() }}
+        <h1 class="login-title">TheFixers<span>Services</span></h1>
+        <div class="input-box">
+            <i class='bx bxs-user'></i>
+            {{ form.username }}
+        </div>
+        <div class="input-box">
+            <i class='bx bxs-lock-alt'></i>
+            {{ form.password }}
+        </div>
+
+        {{ form.submit(class="login-btn") }}
+
+    </form>
+
+</body>
+</html>

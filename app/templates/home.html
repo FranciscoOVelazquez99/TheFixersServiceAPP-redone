@@ -1,0 +1,52 @@
+{% extends "./base.html" %} 
+
+<!-- Titulo de la seccion -->
+{% block PageName %}<h1>Panel de control</h1> {% endblock %}
+<!-- FIN del Titulo de la seccion -->
+
+
+{% block menuHome %} active {% endblock %}
+
+
+{% block body %}
+<div class="card" style="width: 18rem;">
+    <img src="/static/img/profile.jpg" class="card-img-top" alt="que iria aqui?">
+    <div class="card-body">
+      <h5 class="card-title">Reparaciones pendientes</h5>
+      <p class="card-text">Revisa las reparaciones pendientes.</p>
+      <a href="{{ url_for('main.reparaciones') }}" class="btn btn-primary">Ir</a>
+    </div>
+</div>
+<div class="card" aria-hidden="true" style="width: 18rem;">
+    <img src="/static/img/bg.jpg" class="card-img-top" alt="...">
+    <div class="card-body">
+      <h5 class="card-title placeholder-glow">
+        <span class="placeholder col-6"></span>
+      </h5>
+      <p class="card-text placeholder-glow">
+        <span class="placeholder col-7"></span>
+        <span class="placeholder col-4"></span>
+        <span class="placeholder col-4"></span>
+        <span class="placeholder col-6"></span>
+        <span class="placeholder col-8"></span>
+      </p>
+      <a class="btn btn-primary disabled placeholder col-6" aria-disabled="true"></a>
+    </div>
+</div>
+<div class="card" aria-hidden="true" style="width: 18rem;">
+    <img src="/static/img/bg2.jpg" class="card-img-top" alt="...">
+    <div class="card-body">
+      <h5 class="card-title placeholder-glow">
+        <span class="placeholder col-6"></span>
+      </h5>
+      <p class="card-text placeholder-glow">
+        <span class="placeholder col-7"></span>
+        <span class="placeholder col-4"></span>
+        <span class="placeholder col-4"></span>
+        <span class="placeholder col-6"></span>
+        <span class="placeholder col-8"></span>
+      </p>
+      <a class="btn btn-primary disabled placeholder col-6" aria-disabled="true"></a>
+    </div>
+</div>
+{% endblock %}

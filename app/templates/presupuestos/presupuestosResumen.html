@@ -1,0 +1,269 @@
+{% extends 'base.html' %}
+
+{% block menuPresupuestos %}active{% endblock %}
+{% block menuPresupuestosSubone %}active{% endblock %}
+
+{% block PageName %}
+<h1>Resumen de Presupuestos</h1>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <!-- Tarjetas de resumen -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Total Presupuestos</h5>
+                            <h3 class="mb-0" id="totalPresupuestos">0</h3>
+                        </div>
+                        <i class="bi bi-receipt fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Presupuestos Aprobados</h5>
+                            <h3 class="mb-0" id="presupuestosAprobados">0</h3>
+                        </div>
+                        <i class="bi bi-check-circle fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Pendientes</h5>
+                            <h3 class="mb-0" id="presupuestosPendientes">0</h3>
+                        </div>
+                        <i class="bi bi-clock-history fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="card-title">Total Facturado</h5>
+                            <h3 class="mb-0" id="totalFacturado">$0</h3>
+                        </div>
+                        <i class="bi bi-currency-dollar fs-1"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabla de presupuestos -->
+    <div class="card">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Lista de Presupuestos</h5>
+                <div>
+                    <input type="text" class="form-control" id="buscarPresupuesto" placeholder="Buscar...">
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Cliente</th>
+                            <th>Tipo Reparación</th>
+                            <th>Fecha</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaPresupuestos">
+                        <!-- Los datos se cargarán dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+    $(document).ready(function() {
+        // Función para cargar los datos desde el servidor
+        function cargarPresupuestos() {
+            $.ajax({
+                url: '{{ url_for("main.get_presupuestos_resumen") }}',
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        actualizarEstadisticas(response.estadisticas);
+                        actualizarTabla(response.presupuestos);
+                    } else {
+                        mostrarError('Error al cargar los datos');
+                    }
+                },
+                error: function() {
+                    mostrarError('Error de conexión al servidor');
+                }
+            });
+        }
+
+        function actualizarEstadisticas(estadisticas) {
+            $('#totalPresupuestos').text(estadisticas.total);
+            $('#presupuestosAprobados').text(estadisticas.aprobados);
+            $('#presupuestosPendientes').text(estadisticas.pendientes);
+            $('#totalFacturado').text(`$${estadisticas.facturado.toLocaleString()}`);
+        }
+
+        function actualizarTabla(presupuestos) {
+            const tabla = $('#tablaPresupuestos');
+            tabla.empty();
+
+            presupuestos.forEach(p => {
+                tabla.append(`
+                    <tr>
+                        <td>${p.id}</td>
+                        <td>${p.cliente}</td>
+                        <td>${p.tipo_reparacion}</td>
+                        <td>${p.fecha}</td>
+                        <td>$${p.total.toLocaleString()}</td>
+                        <td><span class="badge bg-${p.estado === 'Aprobado' ? 'success' : 'warning'}">${p.estado}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-primary ver-presupuesto" data-id="${p.id}">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <button class="btn btn-sm btn-warning editar-presupuesto" data-id="${p.id}">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `);
+            });
+        }
+
+        function mostrarError(mensaje) {
+            // Mostrar mensaje de error usando el sistema de notificaciones de Bootstrap
+            const toast = `
+                <div class="toast-container position-fixed bottom-0 end-0 p-3">
+                    <div class="toast bg-danger text-white" role="alert">
+                        <div class="toast-header">
+                            <strong class="me-auto">Error</strong>
+                            <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+                        </div>
+                        <div class="toast-body">${mensaje}</div>
+                    </div>
+                </div>
+            `;
+            $(toast).appendTo('body').find('.toast').toast('show');
+        }
+
+        // Iniciar carga de datos
+        cargarPresupuestos();
+
+        // Actualizar datos cada 5 minutos
+        setInterval(cargarPresupuestos, 300000);
+
+        // Buscador
+        $('#buscarPresupuesto').on('keyup', function() {
+            const valor = $(this).val().toLowerCase();
+            $("#tablaPresupuestos tr").filter(function() {
+                $(this).toggle($(this).text().toLowerCase().indexOf(valor) > -1)
+            });
+        });
+
+        // Manejadores de eventos para los botones de acción
+        $(document).on('click', '.ver-presupuesto', function() {
+            const id = $(this).data('id');
+            $.ajax({
+                url: `/presupuesto/${id}`,
+                method: 'GET',
+                success: function(response) {
+                    if (response.success) {
+                        mostrarModalDetalles(response.presupuesto);
+                    } else {
+                        mostrarError('Error al cargar los detalles del presupuesto');
+                    }
+                },
+                error: function() {
+                    mostrarError('Error de conexión al servidor');
+                }
+            });
+        });
+
+        function mostrarModalDetalles(presupuesto) {
+            const modal = `
+                <div class="modal fade" id="detallesPresupuestoModal" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">Detalles del Presupuesto #${presupuesto.id}</h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="mb-3">
+                                    <strong>Cliente:</strong> ${presupuesto.cliente}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Tipo de Reparación:</strong> ${presupuesto.tipo_reparacion}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Descripción:</strong> ${presupuesto.descripcion}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Unidades:</strong> ${presupuesto.unidades}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Precio Unitario:</strong> $${presupuesto.precio_unitario.toLocaleString()}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Total:</strong> $${presupuesto.total.toLocaleString()}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Fecha:</strong> ${presupuesto.fecha}
+                                </div>
+                                <div class="mb-3">
+                                    <strong>Estado:</strong> 
+                                    <span class="badge bg-${presupuesto.estado === 'Aprobado' ? 'success' : 'warning'}">
+                                        ${presupuesto.estado}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                                <a href="/presupuestos/${presupuesto.reparacion_id}" class="btn btn-primary">
+                                    Ver Reparación
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Remover modal anterior si existe
+            $('#detallesPresupuestoModal').remove();
+            
+            // Agregar y mostrar nuevo modal
+            $(modal).appendTo('body');
+            new bootstrap.Modal('#detallesPresupuestoModal').show();
+        }
+
+        $(document).on('click', '.editar-presupuesto', function() {
+            const id = $(this).data('id');
+            window.location.href = `/presupuestos/${id}`;
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,149 @@
+{% extends "./base.html" %} 
+
+<!-- Titulo de la seccion -->
+{% block PageName %}<h1>Usuarios Registrados</h1> {% endblock %}
+<!-- FIN del Titulo de la seccion -->
+
+
+{% block menuUsuarios %} active {% endblock %}
+    {% block menuUsuariosSubListar %} active {% endblock %}
+    
+
+
+{% block body %}
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Avatar</th>
+                        <th>Usuario</th>
+                        <th>Rol</th>
+                        <th>Fecha Registro</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for usuario in usuarios %}
+                    <tr>
+                        <td>
+                            <img src="{{ url_for('static', filename=usuario.avatar) }}" 
+                                 class="rounded-circle" 
+                                 style="width: 50px; height: 50px; object-fit: cover;">
+                        </td>
+                        <td>{{ usuario.usuario }}</td>
+                        <td><span class="badge bg-primary">{{ usuario.rol }}</span></td>
+                        <td>{{ usuario.fecha_registro.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>
+                            <button class="btn btn-sm btn-primary" 
+                                    data-bs-toggle="modal" 
+                                    data-bs-target="#editModal{{ usuario.id }}">
+                                <i class="bx bx-edit"></i> Editar
+                            </button>
+                            {% if current_user.rol == 'ADMIN' %}
+                            <button class="btn btn-sm btn-danger" 
+                                    onclick="eliminarUsuario({{ usuario.id }})">
+                                <i class="bx bx-trash"></i> Eliminar
+                            </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{# Movemos los modales fuera del block body #}
+{% block modals %}
+{% for usuario in usuarios %}
+<!-- Modal de Edición -->
+<div class="modal fade" id="editModal{{ usuario.id }}" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('main.editar_usuario', id=usuario.id) }}" 
+                  method="POST" 
+                  enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <img src="{{ url_for('static', filename=usuario.avatar) }}" 
+                             id="preview{{ usuario.id }}" 
+                             class="rounded-circle" 
+                             style="width: 150px; height: 150px; object-fit: cover;">
+                        <input type="file" 
+                               class="form-control mt-2" 
+                               name="avatar" 
+                               onchange="previewImage(this, 'preview{{ usuario.id }}')">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Usuario</label>
+                        <input type="text" 
+                               class="form-control" 
+                               name="username" 
+                               value="{{ usuario.usuario }}" 
+                               required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Nueva Contraseña</label>
+                        <input type="password" 
+                               class="form-control" 
+                               name="password" 
+                               placeholder="Dejar en blanco para mantener la actual">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Rol</label>
+                        <select class="form-select" name="rol" required>
+                            <option value="ADMIN" {% if usuario.rol == 'ADMIN' %}selected{% endif %}>Administrador</option>
+                            <option value="ADMINISTRACION" {% if usuario.rol == 'ADMINISTRACION' %}selected{% endif %}>Administración</option>
+                            <option value="SUPERVISOR" {% if usuario.rol == 'SUPERVISOR' %}selected{% endif %}>Supervisor</option>
+                            <option value="OPERADOR" {% if usuario.rol == 'OPERADOR' %}selected{% endif %}>Operador</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+
+{% block script %}
+<script>
+function previewImage(input, previewId) {
+    if (input.files && input.files[0]) {
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById(previewId).src = e.target.result;
+        }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function eliminarUsuario(userId) {
+    if (confirm('¿Estás seguro de que deseas eliminar este usuario?')) {
+        fetch(`/eliminar_usuario/${userId}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al eliminar usuario');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends "./base.html" %} 
+
+{% block PageName %}
+<h1>Presupuestos - Reparación #{{ reparacion.id }}</h1>
+{% endblock %}
+
+{% block menuPresupuestos %}menu active{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <!-- Información de la reparación -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5>Detalles de la Reparación</h5>
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Cliente:</strong> {{ reparacion.cliente }}</p>
+                    <p><strong>DNI/CUIL:</strong> {{ reparacion.dni_cuil }}</p>
+                    <p><strong>Teléfono:</strong> {{ reparacion.telefono }}</p>
+                </div>
+                <div class="col-md-6">
+                    <p><strong>Estado:</strong> <span class="badge bg-{{ reparacion.estado | estado_color }}">{{ reparacion.estado }}</span></p>
+                    <p><strong>Técnico:</strong> {{ reparacion.tecnico_rel.usuario if reparacion.tecnico_rel else 'Sin asignar' }}</p>
+                    <p><strong>Fecha Ingreso:</strong> {{ reparacion.fecha_ingreso.strftime('%d/%m/%Y') }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón Nuevo Presupuesto -->
+    <div class="mb-4">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuevoPresupuestoModal">
+            <i class="bx bx-plus"></i> Nuevo Presupuesto
+        </button>
+    </div>
+
+    <!-- Lista de Presupuestos -->
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Tipo</th>
+                            <th>Descripción</th>
+                            <th>Unidades</th>
+                            <th>Precio Unit.</th>
+                            <th>Total</th>
+                            <th>Estado</th>
+                            <th>Fecha</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for presupuesto in reparacion.presupuestos %}
+                        <tr data-presupuesto-id="{{ presupuesto.id }}">
+                            <td data-tipo="{{ presupuesto.tipo_reparacion }}">{{ presupuesto.tipo_reparacion }}</td>
+                            <td data-descripcion="{{ presupuesto.descripcion }}">{{ presupuesto.descripcion }}</td>
+                            <td data-unidades="{{ presupuesto.unidades }}">{{ presupuesto.unidades }}</td>
+                            <td data-precio="{{ presupuesto.precio_unitario }}">${{ "%.2f"|format(presupuesto.precio_unitario) }}</td>
+                            <td data-total="{{ presupuesto.total }}">${{ "%.2f"|format(presupuesto.total) }}</td>
+                            <td>
+                                <span class="badge bg-{{ 'success' if presupuesto.aprobado else 'warning' }}">
+                                    {{ 'Aprobado' if presupuesto.aprobado else 'Pendiente' }}
+                                </span>
+                            </td>
+                            <td>{{ presupuesto.fecha_creacion.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-primary" onclick="editarPresupuesto({{ presupuesto.id }})">
+                                    <i class="bx bx-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="eliminarPresupuesto({{ presupuesto.id }})">
+                                    <i class="bx bx-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Modal Nuevo Presupuesto -->
+<div class="modal fade" id="nuevoPresupuestoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nuevo Presupuesto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('main.nuevo_presupuesto', reparacion_id=reparacion.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Reparación</label>
+                        <input type="text" class="form-control" name="tipo_reparacion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Unidades</label>
+                                <input type="number" class="form-control" name="unidades" required min="1" value="1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Precio Unitario</label>
+                                <input type="number" class="form-control" name="precio_unitario" required step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Editar Presupuesto -->
+<div class="modal fade" id="editarPresupuestoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Editar Presupuesto</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formEditarPresupuesto" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tipo de Reparación</label>
+                        <input type="text" class="form-control" name="tipo_reparacion" id="editTipoReparacion" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" id="editDescripcion" rows="3"></textarea>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Unidades</label>
+                                <input type="number" class="form-control" name="unidades" id="editUnidades" required min="1">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label class="form-label">Precio Unitario</label>
+                                <input type="number" class="form-control" name="precio_unitario" id="editPrecioUnitario" required step="0.01">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="aprobado" id="editAprobado">
+                            <label class="form-check-label">Presupuesto Aprobado</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+<script>
+function editarPresupuesto(id) {
+    const row = document.querySelector(`tr[data-presupuesto-id="${id}"]`);
+    if (!row) {
+        console.error('No se encontró la fila del presupuesto');
+        return;
+    }
+
+    const form = document.getElementById('formEditarPresupuesto');
+    form.action = `/editar_presupuesto/${id}`;
+    
+    // Agregamos console.log para debug
+    console.log('Precio data:', row.querySelector('[data-precio]').dataset.precio);
+    
+    document.getElementById('editTipoReparacion').value = row.querySelector('[data-tipo]').dataset.tipo;
+    document.getElementById('editDescripcion').value = row.querySelector('[data-descripcion]').dataset.descripcion;
+    document.getElementById('editUnidades').value = row.querySelector('[data-unidades]').dataset.unidades;
+    document.getElementById('editPrecioUnitario').value = row.querySelector('[data-precio]').dataset.precio;
+    document.getElementById('editAprobado').checked = row.querySelector('.badge').textContent.trim() === 'Aprobado';
+    
+    new bootstrap.Modal(document.getElementById('editarPresupuestoModal')).show();
+}
+
+function eliminarPresupuesto(id) {
+    if (confirm('¿Estás seguro de eliminar este presupuesto?')) {
+        fetch(`/eliminar_presupuesto/${id}`, {
+            method: 'DELETE',
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Error al eliminar el presupuesto');
+            }
+        });
+    }
+}
+</script>
+{% endblock %}

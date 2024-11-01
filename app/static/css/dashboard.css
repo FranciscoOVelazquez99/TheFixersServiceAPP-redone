@@ -1,0 +1,251 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap');
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Poppins', sans-serif;
+}
+
+body {
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(180deg, #A737FF, #7D00E0);
+    display: flex;
+}
+
+aside {
+    background: white;
+    width: 250px;
+    height: 100vh;
+    box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.25);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: 0.3s;
+    position: fixed;
+    z-index: 2;
+}
+.head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.head .logo {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.head .logo img {
+    width: 30px;
+}
+.head .logo .logo-title span {
+    color: #7D00E0;
+}
+.head .bx-menu {
+    font-size: 45px;
+    cursor: pointer;
+}
+
+.nav {
+    border-top: solid #F2F2F2;
+    margin-top: 15px;
+    padding-top: 10px;
+    flex: 1;
+    display:block
+}
+
+aside:not(aside.close) .nav {
+    overflow-y: auto;
+}
+.nav::-webkit-scrollbar {
+    width: 0;
+}
+.menu {
+    padding: 10px 15px;
+    border-radius: 10px;
+    margin-top: 10px;
+    cursor: pointer;
+    color: rgba(0, 0, 0, 0.85);
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    transition: 0.3s;
+    justify-content: space-between;
+}
+.menu:hover {
+    background: #F2F2F2;
+    color: black;
+}
+.menu i {
+    font-size: 25px;
+}
+.menu span {
+    font-weight: 600;
+    font-size: 17px;
+    flex: 1;
+}
+
+.foot {
+    padding-top: 20px;
+    border-top: solid #F2F2F2;
+}
+.profile {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+.profile img {
+    width: 45px;
+    height: 45px;
+    border-radius: 100%;
+}
+.profile .info {
+    display: flex;
+    flex-direction: column;
+}
+.profile .info .name {
+    font-weight: 600;
+    white-space: nowrap;
+}
+.profile .info .job {
+    font-size: 13px;
+}
+.foot .menu-logout {
+    color: red;
+    background: #F2F2F2;
+    margin-top: 15px;
+}
+.foot .menu-logout:hover {
+    background: #FFE3E3;
+    color: red;
+}
+
+aside.close {
+    width: 100px;
+}
+aside.close .logo {
+    display: none;
+}
+aside.close .bx-menu {
+    width: 100%;
+    text-align: center;
+}
+aside.close .menu span {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.25);
+    color: white;
+    padding: 10px;
+    border-radius: 8px;
+    margin-left: 70px;
+    font-size: 16px;
+    opacity: 0;
+    transition: 0.3s;
+    pointer-events: none;
+}
+aside.close .menu i:nth-child(1) {
+    width: 100%;
+    text-align: center;
+}
+aside.close .menu i:nth-child(3) {
+    display: none;
+}
+aside.close .menu:hover span {
+    margin-left: 60px;
+    opacity: 1;
+}
+.nav .menu.active {
+    background: linear-gradient(90deg, #A737FF, #7D00E0);
+    color: white;
+    box-shadow: 0px 0px 4px 0px rgba(0, 0, 0, 0.25);
+}
+.menu i:nth-child(3) {
+    transition: 0.3s;
+}
+.menu.active i:nth-child(3) {
+    transform: rotate(180deg);
+}
+aside.close .menu-dropdown {
+    position: relative;
+}
+aside.close .menu-dropdown .sub-menu {
+    position: absolute;
+    background: white;
+    padding-left: 0;
+    margin-left: 90px;
+    padding-bottom: 10px;
+    padding-left: 10px;
+    padding-right: 10px;
+    border-radius: 12px;
+    top: -55px;
+    z-index: 2;
+}
+.menu-dropdown .sub-menu {
+    display: none;
+    padding-left: 45px;
+}
+.sub-menu .menu {
+    font-size: 14px;
+}
+
+aside.close .profile {
+    display: flex;
+    justify-content: center;
+}
+aside.close .profile .info {
+    display: none;
+}
+
+header {
+    background: rgba(255, 255, 255, 0.15);
+    height: 100px;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 0px 25px;
+    margin-left: 100px;
+}
+header h1{
+    color: white;
+}
+header h4 {
+    color: white;
+}
+a {
+    text-decoration: none !important; /* Elimina el subrayado */
+}
+.bodycontents {
+    margin-top: 100px;
+    height: fit-content;
+    gap: 10px;
+    width: -webkit-fill-available;
+    position: absolute;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-left: 100px;
+    padding: 0px 25px;
+    z-index: 1;
+}
+
+
+@media (min-width: 1200px) {
+    .h2, h2 {
+        font-size: 23px;
+    }
+}
+.h2, h2 {
+    font-size: 23px;
+}
+.h1, .h2, .h3, .h4, .h5, .h6, h1, h2, h3, h4, h5, h6 {
+    margin-top: auto;
+    margin-bottom: auto;
+    font-weight: 500;
+    line-height: 1;
+    color: var(--bs-heading-color);
+}
+.messageArea{
+    position: absolute;
+    left: 50%;
+}
