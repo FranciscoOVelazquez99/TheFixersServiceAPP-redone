@@ -7,11 +7,13 @@ from wtforms.validators import DataRequired
 
 from flask_login import login_required, logout_user, LoginManager, current_user, login_user
 
-from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, db
+from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, db
 from flask_bcrypt import Bcrypt
 
 import os
 from werkzeug.utils import secure_filename
+
+from datetime import datetime, timedelta
 
 PDF_PATH = 'static/PDFs'
 UPLOAD_FOLDER_AVATARS = 'app/static/uploads/avatars'
@@ -490,6 +492,73 @@ def get_presupuestos_resumen():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@main_bp.route('/tablero')
+@login_required
+def tablero():
+    usuarios = Usuario.query.all()
+    return render_template('tareas/tablero.html', usuarios=usuarios)
+
+@main_bp.route('/api/tareas', methods=['GET'])
+@login_required
+def get_tareas():
+    tareas = Tarea.query.all()
+    return jsonify([{
+        'id': t.id,
+        'titulo': t.titulo,
+        'descripcion': t.descripcion,
+        'estado': t.estado,
+        'prioridad': t.prioridad,
+        'asignado_a': t.asignado_a.usuario if t.asignado_a else 'Sin asignar',
+        'fecha_vencimiento': t.fecha_vencimiento.strftime('%Y-%m-%d') if t.fecha_vencimiento else None
+    } for t in tareas])
+
+@main_bp.route('/api/tareas', methods=['POST'])
+@login_required
+def crear_tarea():
+    try:
+        # Depuración: imprimir los datos recibidos
+        print("Datos del formulario:", request.form)
+        
+        fecha_vencimiento = None
+        if request.form.get('fecha_vencimiento'):
+            try:
+                fecha_vencimiento = datetime.strptime(request.form['fecha_vencimiento'], '%Y-%m-%d')
+            except ValueError as e:
+                print("Error al parsear la fecha:", e)
+        
+        nueva_tarea = Tarea(
+            titulo=request.form['titulo'],
+            descripcion=request.form['descripcion'],
+            estado='pendiente',  # Agregar estado inicial
+            prioridad=request.form['prioridad'],
+            asignado_a_id=request.form['asignado_a_id'],
+            creado_por_id=current_user.id,
+            fecha_vencimiento=fecha_vencimiento
+        )
+        
+        db.session.add(nueva_tarea)
+        db.session.commit()
+        
+        flash('Tarea creada exitosamente', 'success')
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al crear la tarea: {str(e)}', 'danger')
+        return jsonify({'success': False, 'error': str(e)})
+
+@main_bp.route('/api/tareas/<int:id>/estado', methods=['PUT'])
+@login_required
+def actualizar_estado_tarea(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        data = request.get_json()
+        
+        tarea.estado = data['estado']
+        db.session.commit()
+        
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
 @main_bp.route('/notificaciones')
 @login_required

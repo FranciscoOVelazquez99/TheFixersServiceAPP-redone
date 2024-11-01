@@ -77,6 +77,29 @@ class Presupuesto(db.Model):
     def __repr__(self):
         return f"<Presupuesto(tipo_reparacion='{self.tipo_reparacion}', total={self.total})>"
 
+class Tarea(db.Model):
+    __tablename__ = 'tareas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    titulo = db.Column(db.String(100), nullable=False)
+    descripcion = db.Column(db.Text)
+    estado = db.Column(db.String(20), default='pendiente')
+    prioridad = db.Column(db.String(20), default='media')
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_vencimiento = db.Column(db.DateTime, nullable=True)
+    
+    asignado_a_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    creado_por_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    
+    asignado_a = db.relationship('Usuario', foreign_keys=[asignado_a_id])
+    creado_por = db.relationship('Usuario', foreign_keys=[creado_por_id])
+
+    def __init__(self, **kwargs):
+        super(Tarea, self).__init__(**kwargs)
+        if not self.estado:
+            self.estado = 'pendiente'
+
+
 # Crear una sesión
 Session = sessionmaker(bind=db.engine)
 session = Session()

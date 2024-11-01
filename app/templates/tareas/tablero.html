@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+
+<!-- Titulo de la seccion -->
+{% block PageName %}<h1>Tablero de Tareas</h1> {% endblock %}
+
+{% block menuTareas %}active{% endblock %}
+{% block menuTareasSubTablero %}active{% endblock %}
+
+{% block head %}
+
+<style>
+    .kanban-board {
+        display: flex;
+        gap: 1rem;
+        padding: 1rem;
+        min-height: calc(100vh - 100px);
+    }
+    
+    .kanban-column {
+        flex: 1;
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        min-height: 200px; /* Altura mínima para columnas vacías */
+    }
+    
+    .kanban-card {
+        background: white;
+        border-radius: 6px;
+        padding: 1rem;
+        margin-bottom: 0.8rem;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        cursor: move;
+        user-select: none; /* Previene la selección de texto al arrastrar */
+    }
+    
+    .kanban-card:hover {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .kanban-column.drag-over {
+        background: #e9ecef;
+        border: 2px dashed #6c757d;
+    }
+    
+    .priority-alta { border-left: 4px solid #dc3545; }
+    .priority-media { border-left: 4px solid #ffc107; }
+    .priority-baja { border-left: 4px solid #28a745; }
+</style>
+
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuevaTareaModal">
+            <i class="bi bi-plus-lg"></i> Nueva Tarea
+        </button>
+    </div>
+
+    <div class="kanban-board">
+        <div class="kanban-column" id="pendiente" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h5 class="text-center mb-3">Pendientes</h5>
+            <div class="tasks-container">
+                <!-- Las tareas pendientes se cargarán aquí -->
+            </div>
+        </div>
+        
+        <div class="kanban-column" id="en_proceso" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h5 class="text-center mb-3">En Proceso</h5>
+            <div class="tasks-container">
+                <!-- Las tareas en proceso se cargarán aquí -->
+            </div>
+        </div>
+        
+        <div class="kanban-column" id="completada" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <h5 class="text-center mb-3">Completadas</h5>
+            <div class="tasks-container">
+                <!-- Las tareas completadas se cargarán aquí -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Modal Nueva Tarea -->
+<div class="modal fade" id="nuevaTareaModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Nueva Tarea</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="nuevaTareaForm">
+                    <div class="mb-3">
+                        <label class="form-label">Título</label>
+                        <input type="text" class="form-control" name="titulo" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Descripción</label>
+                        <textarea class="form-control" name="descripcion" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Prioridad</label>
+                        <select class="form-select" name="prioridad">
+                            <option value="baja">Baja</option>
+                            <option value="media" selected>Media</option>
+                            <option value="alta">Alta</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Asignar a</label>
+                        <select class="form-select" name="asignado_a_id">
+                            {% for usuario in usuarios %}
+                            <option value="{{ usuario.id }}">{{ usuario.usuario }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Fecha de vencimiento</label>
+                        <input type="date" class="form-control" name="fecha_vencimiento">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" onclick="crearTarea()">Crear Tarea</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+function allowDrop(ev) {
+    ev.preventDefault();
+}
+
+function drag(ev) {
+    ev.dataTransfer.setData("text", ev.target.id);
+}
+
+function drop(ev) {
+    ev.preventDefault();
+    const taskId = ev.dataTransfer.getData("text");
+    const column = ev.currentTarget;
+    const newStatus = column.id;
+    
+    // Verificar que el estado sea válido
+    if (['pendiente', 'en_proceso', 'completada'].includes(newStatus)) {
+        actualizarEstadoTarea(taskId, newStatus);
+    }
+}
+
+function cargarTareas() {
+    fetch('/api/tareas')
+        .then(response => response.json())
+        .then(data => {
+            // Limpiar contenedores
+            document.querySelectorAll('.tasks-container').forEach(container => {
+                container.innerHTML = '';
+            });
+            
+            // Distribuir tareas
+            data.forEach(tarea => {
+                const tareaHTML = `
+                    <div class="kanban-card priority-${tarea.prioridad}" 
+                         id="tarea-${tarea.id}" 
+                         draggable="true" 
+                         ondragstart="drag(event)">
+                        <h6>${tarea.titulo}</h6>
+                        <p class="small text-muted mb-1">${tarea.descripcion}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary">${tarea.asignado_a}</span>
+                            <small class="text-muted">${tarea.fecha_vencimiento}</small>
+                        </div>
+                    </div>
+                `;
+                
+                document.querySelector(`#${tarea.estado} .tasks-container`).innerHTML += tareaHTML;
+            });
+        });
+}
+
+function crearTarea() {
+    const formData = new FormData(document.getElementById('nuevaTareaForm'));
+    
+    // Depuración: mostrar los datos que se están enviando
+    for (let pair of formData.entries()) {
+        console.log(pair[0] + ': ' + pair[1]);
+    }
+    
+    fetch('/api/tareas', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('nuevaTareaModal'));
+            modal.hide();
+            cargarTareas();
+            // Limpiar el formulario
+            document.getElementById('nuevaTareaForm').reset();
+        } else {
+            console.error('Error:', data.error);
+            alert('Error al crear la tarea: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al crear la tarea');
+    });
+}
+
+function actualizarEstadoTarea(taskId, newStatus) {
+    const id = taskId.split('-')[1];
+    
+    fetch(`/api/tareas/${id}/estado`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ estado: newStatus })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cargarTareas();
+        } else {
+            console.error('Error al actualizar el estado:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+    });
+}
+
+// Cargar tareas al iniciar
+document.addEventListener('DOMContentLoaded', cargarTareas);
+</script>
+{% endblock %}

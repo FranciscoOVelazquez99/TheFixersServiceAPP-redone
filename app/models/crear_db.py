@@ -70,6 +70,22 @@ def crear_base_datos():
                         fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (reparacion_id) REFERENCES reparaciones(id)
                     )
+                """,
+                'tareas': """
+                    CREATE TABLE IF NOT EXISTS tareas (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        titulo VARCHAR(100) NOT NULL,
+                        descripcion TEXT,
+                        estado VARCHAR(20) DEFAULT 'pendiente',
+                        prioridad VARCHAR(20) DEFAULT 'media',
+                        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        fecha_vencimiento DATETIME,
+
+                        creado_por_id INT,
+                        asignado_a_id INT,
+                        FOREIGN KEY (creado_por_id) REFERENCES usuarios(id),
+                        FOREIGN KEY (asignado_a_id) REFERENCES usuarios(id)
+                    )
                 """
             }
             

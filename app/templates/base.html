@@ -68,8 +68,15 @@
             </div>
             <div class="menu-dropdown">
                 <div class="sub-menu">
-                    <span class="menu {% block menuTareasSubAsignadas %} {% endblock %}">Asignadas</span>
-                    <span class="menu {% block menuTareasSubCompletadas %} {% endblock %}">Completadas</span>
+                    <a href="{{ url_for('main.tablero') }}">
+                        <span class="menu {% block menuTareasSubTablero %} {% endblock %}">Tablero</span>
+                    </a>
+                    <a href="#">
+                        <span class="menu {% block menuTareasSubAsignadas %} {% endblock %}">Asignadas</span>
+                    </a>
+                    <a href="#">
+                        <span class="menu {% block menuTareasSubCompletadas %} {% endblock %}">Completadas</span>
+                    </a>
                 </div>
             </div>
 
