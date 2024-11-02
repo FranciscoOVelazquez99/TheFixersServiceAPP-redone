@@ -20,6 +20,9 @@ class Usuario(db.Model, UserMixin):
     
     def __repr__(self):
         return f"<Usuario(usuario='{self.usuario}', rol='{self.rol}')>"
+    
+    def tiene_notificaciones_sin_leer(self):
+        return any(not notif.leida for notif in self.notificaciones)
 
 class Reparacion(db.Model):
     __tablename__ = 'reparaciones'
@@ -98,6 +101,22 @@ class Tarea(db.Model):
         super(Tarea, self).__init__(**kwargs)
         if not self.estado:
             self.estado = 'pendiente'
+
+
+class Notificacion(db.Model):
+    __tablename__ = 'notificaciones'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuarios.id'))
+    tipo = db.Column(db.String(50), nullable=False)  # 'reparacion', 'tarea', etc.
+    mensaje = db.Column(db.Text, nullable=False)
+    leida = db.Column(db.Boolean, default=False)
+    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    referencia_id = db.Column(db.Integer)  # ID de la reparación o tarea relacionada
+    
+    # Relación con el usuario
+    usuario = db.relationship('Usuario', backref=db.backref('notificaciones', lazy=True))
+
 
 
 # Crear una sesión

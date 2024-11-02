@@ -81,12 +81,11 @@
             </div>
 
 
-            <a href="{{ url_for('main.notificaciones') }}">
-                <div class="menu {% block menuNotificaciones %} {% endblock %}">
-                    <i class="bx bx-bell"></i>
-                    <span>Notificaciones</span>
-                </div>
-            </a>
+            <div class="menu {% block menuNotificaciones %} {% endblock %}" onclick="toggleNotificationSidebar()">
+                <i class="bx bx-bell"></i>
+                <span>Notificaciones</span>
+                <div id="notification-badge" class="notification-badge" style="display: none;"></div>
+            </div>
     
             
             <div class="menu {% block menuUsuarios %} {% endblock %}">
@@ -132,6 +131,17 @@
         </div>
     
     </aside>
+
+    <div class="notification-sidebar" id="notificationSidebar">
+        <div class="sidebar-header">
+            <h5>Notificaciones</h5>
+            <button type="button" class="btn-close" onclick="toggleNotificationSidebar()"></button>
+        </div>
+        <div class="notifications-container">
+            <!-- Las notificaciones se cargarán aquí -->
+        </div>
+    </div>
+
 
     <header>
         {% block PageName %} {% endblock %}
@@ -206,6 +216,114 @@
                 });
             }, 10000); // Ocultar después de 5 segundos
         });
+        function toggleNotificationSidebar() {
+            const sidebar = document.getElementById('notificationSidebar');
+            sidebar.classList.toggle('show');
+            if (sidebar.classList.contains('show')) {
+                cargarNotificaciones();
+            }
+        }
+
+        function cargarNotificaciones() {
+            fetch('/api/notificaciones')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.querySelector('.notifications-container');
+                    container.innerHTML = '';
+                    
+                    // Actualizar badge
+                    const badge = document.getElementById('notification-badge');
+                    const tieneNoLeidas = data.some(n => !n.leida);
+                    badge.style.display = tieneNoLeidas ? 'block' : 'none';
+                    
+                    data.forEach(notif => {
+                        const notifHTML = `
+                            <div class="notification-item ${notif.leida ? '' : 'unread'}">
+                                <div class="notification-header">
+                                    <span class="notification-type ${notif.tipo}">${notif.tipo}</span>
+                                    <span class="notification-date">${notif.fecha}</span>
+                                </div>
+                                <div class="notification-message">
+                                    ${notif.mensaje}
+                                </div>
+                                <div class="notification-actions">
+                                    ${!notif.leida ? `
+                                        <button class="btn btn-sm btn-primary" onclick="marcarLeida(${notif.id})">
+                                            Marcar como leída
+                                        </button>
+                                    ` : ''}
+                                    ${notif.referencia_id ? `
+                                        <button class="btn btn-sm btn-outline-primary" onclick="irAReferencia('${notif.tipo}', ${notif.referencia_id})">
+                                            Ver detalles
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', notifHTML);
+                    });
+                });
+        }
+
+        function marcarLeida(id) {
+            fetch(`/api/notificaciones/marcar-leida/${id}`, {
+                method: 'PUT'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    cargarNotificaciones();
+                }
+            });
+        }
+
+        function irAReferencia(tipo, id) {
+            const rutas = {
+                'reparacion': `/reparaciones#reparacion-${id}`,
+                'tarea': `/tablero#tarea-${id}`
+            };
+            
+            if (rutas[tipo]) {
+                window.location.href = rutas[tipo];
+            }
+        }
+
+        // Cargar notificaciones periódicamente
+        setInterval(function() {
+            if (document.getElementById('notificationSidebar').classList.contains('show')) {
+                cargarNotificaciones();
+            }
+        }, 30000); // Actualizar cada 30 segundos si el sidebar está abierto
+
+        // Función para verificar notificaciones no leídas
+        function verificarNotificacionesNoLeidas() {
+            fetch('/api/notificaciones')
+                .then(response => response.json())
+                .then(data => {
+                    const badge = document.getElementById('notification-badge');
+                    const tieneNoLeidas = data.some(n => !n.leida);
+                    badge.style.display = tieneNoLeidas ? 'block' : 'none';
+                })
+                .catch(error => console.error('Error al verificar notificaciones:', error));
+        }
+
+        // Verificar notificaciones cuando se carga el documento
+        document.addEventListener('DOMContentLoaded', function() {
+            verificarNotificacionesNoLeidas();
+            
+            // Resto de la lógica del DOMContentLoaded existente
+            setTimeout(function() {
+                const toastElements = document.querySelectorAll('#liveToast');
+                toastElements.forEach(function(toastElement) {
+                    const toastInstance = bootstrap.Toast.getOrCreateInstance(toastElement);
+                    toastInstance.hide();
+                });
+            }, 10000);
+        });
+
+        // Verificación periódica (cada minuto)
+        setInterval(verificarNotificacionesNoLeidas, 60000);
+
 
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>

@@ -86,7 +86,19 @@ def crear_base_datos():
                         FOREIGN KEY (creado_por_id) REFERENCES usuarios(id),
                         FOREIGN KEY (asignado_a_id) REFERENCES usuarios(id)
                     )
-                """
+                """,
+                'notificaciones': """
+                    CREATE TABLE IF NOT EXISTS notificaciones (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT,
+                        tipo VARCHAR(50) NOT NULL,
+                        mensaje TEXT NOT NULL,
+                        leida BOOLEAN DEFAULT FALSE,
+                        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        referencia_id INT,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+                    )
+                """ 
             }
             
             # Crear cada tabla

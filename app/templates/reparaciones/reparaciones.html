@@ -28,6 +28,14 @@
                 <div class="col-md-3">
                     <input type="text" class="form-control" placeholder="Buscar por cliente..." id="buscarCliente">
                 </div>
+                <div class="col-md-3">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="misReparaciones">
+                        <label class="form-check-label" for="misReparaciones">
+                            Mis reparaciones asignadas
+                        </label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -341,19 +349,24 @@ document.getElementById('agregarEquipoModal').addEventListener('show.bs.modal', 
 // Filtros
 document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
 document.getElementById('buscarCliente').addEventListener('input', aplicarFiltros);
+document.getElementById('misReparaciones').addEventListener('change', aplicarFiltros);
 
 function aplicarFiltros() {
-    const estado = document.getElementById('filtroEstado').value;
+    const estado = document.getElementById('filtroEstado').value.toLowerCase();
     const cliente = document.getElementById('buscarCliente').value.toLowerCase();
+    const soloMisReparaciones = document.getElementById('misReparaciones').checked;
+    const usuarioActual = '{{ current_user.usuario }}'; // Obtener usuario actual
     
     document.querySelectorAll('#listaReparaciones .col-md-4').forEach(card => {
         const cardEstado = card.querySelector('.badge').textContent.toLowerCase();
         const cardCliente = card.querySelector('.card-header h5').textContent.toLowerCase();
+        const cardTecnico = card.querySelector('[data-tecnico]').getAttribute('data-tecnico').toLowerCase();
         
         const cumpleEstado = !estado || cardEstado === estado;
         const cumpleCliente = !cliente || cardCliente.includes(cliente);
+        const cumpleTecnico = !soloMisReparaciones || cardTecnico === usuarioActual.toLowerCase();
         
-        card.style.display = cumpleEstado && cumpleCliente ? '' : 'none';
+        card.style.display = cumpleEstado && cumpleCliente && cumpleTecnico ? '' : 'none';
     });
 }
 

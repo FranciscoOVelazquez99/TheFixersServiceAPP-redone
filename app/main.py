@@ -7,7 +7,7 @@ from wtforms.validators import DataRequired
 
 from flask_login import login_required, logout_user, LoginManager, current_user, login_user
 
-from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, db
+from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, db
 from flask_bcrypt import Bcrypt
 
 import os
@@ -46,6 +46,23 @@ def validate_username(username):
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def crear_notificacion(usuario_id, tipo, mensaje, referencia_id=None):
+    try:
+        notificacion = Notificacion(
+            usuario_id=usuario_id,
+            tipo=tipo,
+            mensaje=mensaje,
+            referencia_id=referencia_id
+        )
+        db.session.add(notificacion)
+        db.session.commit()
+        return True
+    except Exception as e:
+        print(f"Error al crear notificación: {e}")
+        db.session.rollback()
+        return False
 
 
 @main_bp.route('/')
@@ -193,6 +210,18 @@ def nueva_reparacion():
             tecnico=request.form['tecnico'] if request.form['tecnico'] else None,
             estado='Pendiente'
         )
+
+        # Crear notificación para el técnico asignado
+        if nueva_reparacion.tecnico:
+            usuario = Usuario.query.filter_by(usuario=nueva_reparacion.tecnico).first()
+            if usuario:
+                crear_notificacion(
+                    usuario_id=usuario.id,
+                    tipo='reparacion',
+                    mensaje=f'Se te ha asignado una nueva reparación: {nueva_reparacion.descripcion}',
+                    referencia_id=nueva_reparacion.id
+                )
+
         db.session.add(nueva_reparacion)
         db.session.commit()
         flash('Reparación creada exitosamente', 'success')
@@ -212,6 +241,18 @@ def editar_reparacion(id):
         reparacion.descripcion = request.form['descripcion']
         reparacion.tecnico = request.form['tecnico'] if request.form['tecnico'] else None
         reparacion.estado = request.form['estado']
+        
+        # Crear notificación para el técnico asignado
+        print(reparacion.id)
+        if reparacion.tecnico:
+            usuario = Usuario.query.filter_by(usuario=reparacion.tecnico).first()
+            if usuario:
+                crear_notificacion(
+                    usuario_id=usuario.id,
+                    tipo='reparacion',
+                    mensaje=f'Se te ha asignado una nueva reparación: {reparacion.descripcion}',
+                    referencia_id=reparacion.id
+                )
         
         db.session.commit()
         flash('Reparación actualizada exitosamente', 'success')
@@ -533,6 +574,14 @@ def crear_tarea():
             creado_por_id=current_user.id,
             fecha_vencimiento=fecha_vencimiento
         )
+                # Crear notificación para el usuario asignado
+        if nueva_tarea.asignado_a_id:
+            crear_notificacion(
+                usuario_id=nueva_tarea.asignado_a_id,
+                tipo='tarea',
+                mensaje=f'Se te ha asignado una nueva tarea: {nueva_tarea.titulo}',
+                referencia_id=nueva_tarea.id
+            )
         
         db.session.add(nueva_tarea)
         db.session.commit()
@@ -594,6 +643,16 @@ def actualizar_tarea(id):
             except ValueError:
                 return jsonify({'success': False, 'error': 'Formato de fecha inválido'}), 400
 
+
+        # Actualizar notificación
+        if tarea.asignado_a_id:
+            crear_notificacion(
+                usuario_id=tarea.asignado_a_id,
+                tipo='tarea',
+                mensaje=f'Se te ha asignado a la tarea: {tarea.titulo}',
+                referencia_id=tarea.id
+            )
+
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
@@ -652,10 +711,37 @@ def restaurar_tarea(id):
 
 
 
+@main_bp.route('/api/notificaciones', methods=['GET'])
+@login_required
+def get_notificaciones():
+    notificaciones = Notificacion.query.filter_by(
+        usuario_id=current_user.id
+    ).order_by(Notificacion.fecha_creacion.desc()).all()
+    
+    return jsonify([{
+        'id': n.id,
+        'tipo': n.tipo,
+        'mensaje': n.mensaje,
+        'leida': n.leida,
+        'fecha': n.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+        'referencia_id': n.referencia_id
+    } for n in notificaciones])
+
+@main_bp.route('/api/notificaciones/marcar-leida/<int:id>', methods=['PUT'])
+@login_required
+def marcar_notificacion_leida(id):
+    try:
+        notificacion = Notificacion.query.get_or_404(id)
+        notificacion.leida = True
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
 @main_bp.route('/notificaciones')
 @login_required
 def notificaciones():
-    return render_template('base.html')
+    return render_template('notificaciones/notificaciones.html')
 
 
 @main_bp.route('/usuarios')
