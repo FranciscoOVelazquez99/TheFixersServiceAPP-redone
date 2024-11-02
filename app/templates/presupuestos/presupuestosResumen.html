@@ -457,49 +457,102 @@
 
     
         // Funciones para la calculadora de ganancias
-        $(document).ready(function() {        // Funcionalidad del botón toggle y sidebar
-      
-        let gastos = [];
+        $(document).ready(function() {
+    let gastos = cargarGastosGuardados();
 
-        // Manejador del selector de período
-        $('#periodoFacturacion').change(function() {
-            const periodo = $(this).val();
-            $('#fechasPersonalizadas').toggle(periodo === 'personalizado');
+    // Función para guardar gastos en localStorage
+    function guardarGastos() {
+        const gastosParaGuardar = [];
+        $('.gasto-item').each(function() {
+            gastosParaGuardar.push({
+                descripcion: $(this).find('.descripcion-gasto').val(),
+                monto: $(this).find('.monto-gasto').val()
+            });
+        });
+        localStorage.setItem('calculadora_gastos', JSON.stringify(gastosParaGuardar));
+    }
+
+    // Función para cargar gastos desde localStorage
+    function cargarGastosGuardados() {
+        const gastosGuardados = localStorage.getItem('calculadora_gastos');
+        if (gastosGuardados) {
+            const gastos = JSON.parse(gastosGuardados);
+            gastos.forEach(gasto => {
+                agregarGastoALista(gasto.descripcion, gasto.monto);
+            });
+            return gastos;
+        }
+        return [];
+    }
+
+    // Función para agregar un gasto a la lista
+    function agregarGastoALista(descripcion = '', monto = 0) {
+        const gastoHtml = `
+            <div class="input-group mb-2 gasto-item">
+                <input type="text" class="form-control form-control-sm descripcion-gasto" 
+                       placeholder="Descripción" value="${descripcion}">
+                <span class="input-group-text">$</span>
+                <input type="number" class="form-control form-control-sm monto-gasto" 
+                       value="${monto}">
+                <button id="eliminarGasto" class="btn btn-sm btn-outline-danger eliminar-gasto">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+        $('#listaGastos').append(gastoHtml);
+    }
+
+    // Manejador del selector de período
+    $('#periodoFacturacion').change(function() {
+        const periodo = $(this).val();
+        $('#fechasPersonalizadas').toggle(periodo === 'personalizado');
+        calcularFacturacion();
+    });
+
+    // Manejador de fechas personalizadas
+    $('#fechaInicio, #fechaFin').change(function() {
+        if ($('#periodoFacturacion').val() === 'personalizado') {
             calcularFacturacion();
-        });
+        }
+    });
 
-        // Manejador de fechas personalizadas
-        $('#fechaInicio, #fechaFin').change(function() {
-            if ($('#periodoFacturacion').val() === 'personalizado') {
-                calcularFacturacion();
-            }
-        });
+    // Agregar nuevo gasto
+    $('#agregarGasto').click(function() {
+        agregarGastoALista();
+        calcularTotales();
+        guardarGastos();
+    });
 
-        // Agregar nuevo gasto
-        $('#agregarGasto').click(function() {
-            const gastoHtml = `
-                <div class="input-group mb-2 gasto-item">
-                    <input type="text" class="form-control form-control-sm descripcion-gasto" placeholder="Descripción">
-                    <span class="input-group-text">$</span>
-                    <input type="number" class="form-control form-control-sm monto-gasto" value="0">
-                    <button class="btn btn-sm btn-outline-danger eliminar-gasto">
-                        <i class="bi bi-trash"></i>
-                    </button>
-                </div>
-            `;
-            $('#listaGastos').append(gastoHtml);
-        });
+    // Eliminar gasto
+    $('#eliminarGasto').click(function() {
+        console.log('Eliminar gasto');
+        $(this).closest('.gasto-item').remove();
+        calcularTotales();
+        guardarGastos();
+    });
 
-        // Eliminar gasto
-        $(document).on('click', '.eliminar-gasto', function() {
-            $(this).closest('.gasto-item').remove();
+    // Calcular al cambiar montos o descripciones de gastos
+    $(document).on('input', '.monto-gasto, .descripcion-gasto', function() {
+        calcularTotales();
+        guardarGastos();
+    });
+
+    // Agregar botón para limpiar todos los gastos
+    const btnLimpiarGastos = `
+        <button class="btn btn-sm btn-outline-danger mt-2 ms-2" id="limpiarGastos">
+            <i class="bi bi-trash"></i> Limpiar Todos
+        </button>
+    `;
+    $('#agregarGasto').after(btnLimpiarGastos);
+
+    // Manejador para limpiar todos los gastos
+    $('#limpiarGastos').click(function() {
+        if (confirm('¿Estás seguro de que deseas eliminar todos los gastos?')) {
+            $('#listaGastos').empty();
+            localStorage.removeItem('calculadora_gastos');
             calcularTotales();
-        });
-
-        // Calcular al cambiar montos de gastos
-        $(document).on('input', '.monto-gasto', function() {
-            calcularTotales();
-        });
+        }
+    });
 
         function calcularFacturacion() {
             const periodo = $('#periodoFacturacion').val();
