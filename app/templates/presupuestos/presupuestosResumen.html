@@ -205,9 +205,11 @@
                 <div id="listaGastos">
                     <!-- Los gastos se agregarán dinámicamente -->
                 </div>
-                <button class="btn btn-sm btn-outline-primary mt-2" id="agregarGasto">
-                    <i class="bi bi-plus-circle"></i> Agregar Gasto
-                </button>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary mt-2" id="agregarGasto">
+                        <i class="bi bi-plus-circle"></i> Agregar Gasto
+                    </button>
+                </div>
             </div>
 
             <!-- Total de gastos -->
@@ -400,67 +402,84 @@
     });
 
 
-    $(document).ready(function() {        // Funcionalidad del botón toggle y sidebar
-        
-        const toggleBtn = $('#toggleCalculadora');
-        const sidebar = $('#calculadoraSidebar');
-        const contenidoPrincipal = $('#contenidoPrincipal');
-        const cerrarBtn = $('#cerrarCalculadora');
+    $(document).ready(function() {
+    // Variables globales
+    const toggleBtn = $('#toggleCalculadora');
+    const sidebar = $('#calculadoraSidebar');
+    const cerrarBtn = $('#cerrarCalculadora');
+    let gastos = [];
 
-        function toggleCalculadora() {
-            sidebar.toggleClass('active');
-            toggleBtn.toggleClass('active');
-            
-            // Añadir este console.log para debugging
-            console.log('Toggle clicked', {
-                sidebarActive: sidebar.hasClass('active'),
-                sidebarRight: sidebar.css('right'),
-                toggleActive: toggleBtn.hasClass('active')
-            });
-        }
-
-        toggleBtn.click(toggleCalculadora);
-        cerrarBtn.click(toggleCalculadora);
-
-        // Cerrar al hacer clic fuera
-        $(document).click(function(event) {
-            if (!$(event.target).closest('#calculadoraSidebar, #toggleCalculadora').length 
-                && sidebar.hasClass('active')) {
-                toggleCalculadora();
-            }
+    function exportarGastosCSV() {
+    const gastos = [];
+    $('.gasto-item').each(function() {
+        gastos.push({
+            descripcion: $(this).find('.descripcion-gasto').val(),
+            monto: $(this).find('.monto-gasto').val()
         });
-
-        // Prevenir que los clics dentro de la calculadora la cierren
-        sidebar.click(function(event) {
-            event.stopPropagation();
-        });
-
-        // Ajustar posición del botón al hacer scroll
-        let lastScrollTop = 0;
-        $(window).scroll(function() {
-            const st = $(this).scrollTop();
-            if (st > lastScrollTop && st > 200) {
-                // Scroll hacia abajo
-                toggleBtn.css('transform', 'translateY(-100%) translateX(0)');
-            } else {
-                // Scroll hacia arriba
-                toggleBtn.css('transform', 'translateY(-50%) translateX(0)');
-                if (toggleBtn.hasClass('active')) {
-                    toggleBtn.css('transform', 'translateY(-50%) translateX(-400px)');
-                }
-            }
-            lastScrollTop = st;
-        });
-
     });
 
+    if (gastos.length === 0) {
+        alert('No hay gastos para exportar');
+        return;
+    }
 
+    // Agregar BOM para Excel
+    let csvContent = '\ufeff';
     
-        // Funciones para la calculadora de ganancias
-        $(document).ready(function() {
-    let gastos = cargarGastosGuardados();
+    // Encabezados
+    csvContent += 'Descripción;Monto\n';
+    
+    // Datos de gastos
+    gastos.forEach(gasto => {
+        // Escapar comillas y reemplazar punto y coma
+        const descripcionFormateada = gasto.descripcion.replace(/"/g, '""').replace(/;/g, ',');
+        const montoFormateado = parseFloat(gasto.monto || 0).toLocaleString('es-AR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        }).replace(/\./g, '');
 
-    // Función para guardar gastos en localStorage
+        csvContent += `"${descripcionFormateada}";${montoFormateado}\n`;
+    });
+
+    // Línea en blanco antes del resumen
+    csvContent += '\n';
+
+    // Resumen
+    const totalGastos = gastos.reduce((sum, gasto) => sum + parseFloat(gasto.monto || 0), 0);
+    const facturacion = parseFloat($('#facturacionTotal').val().replace(/[,.]/g, '') || 0);
+    const gananciaNeta = facturacion - totalGastos;
+
+    csvContent += 'Resumen;\n';
+    csvContent += `Facturación Total;${facturacion.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).replace(/\./g, '')}\n`;
+    csvContent += `Total Gastos;${totalGastos.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).replace(/\./g, '')}\n`;
+    csvContent += `Ganancia Neta;${gananciaNeta.toLocaleString('es-AR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).replace(/\./g, '')}\n`;
+
+    // Crear y descargar el archivo
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+    const link = document.createElement('a');
+    const fecha = new Date().toLocaleDateString('es-AR').replace(/\//g, '-');
+    
+    if (navigator.msSaveBlob) {
+        navigator.msSaveBlob(blob, `gastos_${fecha}.csv`);
+    } else {
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `gastos_${fecha}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+}
+
+    // ===== FUNCIONES DE LA CALCULADORA =====
     function guardarGastos() {
         const gastosParaGuardar = [];
         $('.gasto-item').each(function() {
@@ -472,20 +491,18 @@
         localStorage.setItem('calculadora_gastos', JSON.stringify(gastosParaGuardar));
     }
 
-    // Función para cargar gastos desde localStorage
     function cargarGastosGuardados() {
         const gastosGuardados = localStorage.getItem('calculadora_gastos');
         if (gastosGuardados) {
-            const gastos = JSON.parse(gastosGuardados);
-            gastos.forEach(gasto => {
+            const gastosArray = JSON.parse(gastosGuardados);
+            gastosArray.forEach(gasto => {
                 agregarGastoALista(gasto.descripcion, gasto.monto);
             });
-            return gastos;
+            return gastosArray;
         }
         return [];
     }
 
-    // Función para agregar un gasto a la lista
     function agregarGastoALista(descripcion = '', monto = 0) {
         const gastoHtml = `
             <div class="input-group mb-2 gasto-item">
@@ -494,7 +511,7 @@
                 <span class="input-group-text">$</span>
                 <input type="number" class="form-control form-control-sm monto-gasto" 
                        value="${monto}">
-                <button id="eliminarGasto" class="btn btn-sm btn-outline-danger eliminar-gasto">
+                <button type="button" class="btn btn-sm btn-outline-danger eliminar-gasto">
                     <i class="bi bi-trash"></i>
                 </button>
             </div>
@@ -502,50 +519,144 @@
         $('#listaGastos').append(gastoHtml);
     }
 
-    // Manejador del selector de período
-    $('#periodoFacturacion').change(function() {
-        const periodo = $(this).val();
-        $('#fechasPersonalizadas').toggle(periodo === 'personalizado');
-        calcularFacturacion();
-    });
+    function calcularTotales() {
+        let totalGastos = 0;
+        $('.monto-gasto').each(function() {
+            totalGastos += parseFloat($(this).val() || 0);
+        });
 
-    // Manejador de fechas personalizadas
-    $('#fechaInicio, #fechaFin').change(function() {
-        if ($('#periodoFacturacion').val() === 'personalizado') {
-            calcularFacturacion();
+        const facturacionStr = $('#facturacionTotal').val().replace(/[,.]/g, '');
+        const facturacion = parseFloat(facturacionStr) || 0;
+
+        const formatearNumero = (numero) => {
+            return numero.toLocaleString('es-AR', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            });
+        };
+
+        $('#totalGastos').val(formatearNumero(totalGastos));
+        $('#gananciaNeta').val(formatearNumero(facturacion - totalGastos));
+    }
+
+    function calcularFacturacion() {
+        const periodo = $('#periodoFacturacion').val();
+        let fechaInicio, fechaFin;
+
+        switch (periodo) {
+            case 'mes':
+                fechaInicio = new Date();
+                fechaInicio.setDate(1);
+                fechaFin = new Date();
+                break;
+            case 'semana':
+                fechaInicio = new Date();
+                fechaInicio.setDate(fechaInicio.getDate() - fechaInicio.getDay());
+                fechaFin = new Date();
+                break;
+            case 'personalizado':
+                fechaInicio = new Date($('#fechaInicio').val());
+                fechaFin = new Date($('#fechaFin').val());
+                break;
+            default:
+                fechaInicio = null;
+                fechaFin = null;
+        }
+
+        $.ajax({
+            url: '{{ url_for("main.get_facturacion") }}',
+            method: 'GET',
+            data: {
+                fecha_inicio: fechaInicio?.toISOString(),
+                fecha_fin: fechaFin?.toISOString()
+            },
+            success: function(response) {
+                if (response.success) {
+                    const formatearNumero = (numero) => {
+                        return numero.toLocaleString('es-AR', {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 0
+                        });
+                    };
+                    $('#facturacionTotal').val(formatearNumero(response.facturacion));
+                    calcularTotales();
+                }
+            }
+        });
+    }
+
+    // ===== EVENT LISTENERS =====
+    // Toggle calculadora
+    function toggleCalculadora() {
+        sidebar.toggleClass('active');
+        toggleBtn.toggleClass('active');
+    }
+
+    toggleBtn.click(toggleCalculadora);
+    cerrarBtn.click(toggleCalculadora);
+
+    // Cerrar al hacer clic fuera
+    $(document).click(function(event) {
+        if (!$(event.target).closest('#calculadoraSidebar, #toggleCalculadora').length 
+            && sidebar.hasClass('active')) {
+            toggleCalculadora();
         }
     });
 
-    // Agregar nuevo gasto
+    // Prevenir cierre al clic dentro
+    sidebar.click(function(event) {
+        event.stopPropagation();
+    });
+
+    // Eventos de gastos
     $('#agregarGasto').click(function() {
         agregarGastoALista();
         calcularTotales();
         guardarGastos();
     });
 
-    // Eliminar gasto
-    $('#eliminarGasto').click(function() {
-        console.log('Eliminar gasto');
+    $('#listaGastos').on('click', '.eliminar-gasto', function() {
         $(this).closest('.gasto-item').remove();
         calcularTotales();
         guardarGastos();
     });
 
-    // Calcular al cambiar montos o descripciones de gastos
     $(document).on('input', '.monto-gasto, .descripcion-gasto', function() {
         calcularTotales();
         guardarGastos();
     });
 
-    // Agregar botón para limpiar todos los gastos
-    const btnLimpiarGastos = `
+    // Eventos de período
+    $('#periodoFacturacion').change(function() {
+        $('#fechasPersonalizadas').toggle($(this).val() === 'personalizado');
+        calcularFacturacion();
+    });
+
+    $('#fechaInicio, #fechaFin').change(function() {
+        if ($('#periodoFacturacion').val() === 'personalizado') {
+            calcularFacturacion();
+        }
+    });
+
+    // ===== INICIALIZACIÓN =====
+    // Cargar gastos guardados
+    gastos = cargarGastosGuardados();
+    
+    // Inicializar calculadora
+    calcularFacturacion();
+    
+    // Agregar botones adicionales
+    const botonesAdicionales = `
         <button class="btn btn-sm btn-outline-danger mt-2 ms-2" id="limpiarGastos">
             <i class="bi bi-trash"></i> Limpiar Todos
         </button>
+        <button class="btn btn-sm btn-outline-success mt-2 ms-2" id="exportarGastos">
+            <i class="bi bi-download"></i> Exportar CSV
+        </button>
     `;
-    $('#agregarGasto').after(btnLimpiarGastos);
+    $('#agregarGasto').after(botonesAdicionales);
 
-    // Manejador para limpiar todos los gastos
+    // Eventos de botones adicionales
     $('#limpiarGastos').click(function() {
         if (confirm('¿Estás seguro de que deseas eliminar todos los gastos?')) {
             $('#listaGastos').empty();
@@ -554,81 +665,8 @@
         }
     });
 
-        function calcularFacturacion() {
-            const periodo = $('#periodoFacturacion').val();
-            let fechaInicio, fechaFin;
-
-            switch (periodo) {
-                case 'mes':
-                    fechaInicio = new Date();
-                    fechaInicio.setDate(1);
-                    fechaFin = new Date();
-                    break;
-                case 'semana':
-                    fechaInicio = new Date();
-                    fechaInicio.setDate(fechaInicio.getDate() - fechaInicio.getDay());
-                    fechaFin = new Date();
-                    break;
-                case 'personalizado':
-                    fechaInicio = new Date($('#fechaInicio').val());
-                    fechaFin = new Date($('#fechaFin').val());
-                    break;
-                default:
-                    fechaInicio = null;
-                    fechaFin = null;
-            }
-
-            // Llamada al servidor para obtener la facturación
-            $.ajax({
-                url: '{{ url_for("main.get_facturacion") }}',
-                method: 'GET',
-                data: {
-                    fecha_inicio: fechaInicio?.toISOString(),
-                    fecha_fin: fechaFin?.toISOString()
-                },
-                success: function(response) {
-                    if (response.success) {
-                        const formatearNumero = (numero) => {
-                            return numero.toLocaleString('es-AR', {
-                                minimumFractionDigits: 0,
-                                maximumFractionDigits: 0
-                            });
-                        };
-                        $('#facturacionTotal').val(formatearNumero(response.facturacion));
-                        calcularTotales();
-                    }
-                }
-            });
-        }
-
-        function calcularTotales() {
-            // Calcular total de gastos
-            let totalGastos = 0;
-            $('.monto-gasto').each(function() {
-                totalGastos += parseFloat($(this).val() || 0);
-            });
-
-            // Obtener facturación y limpiar el formato
-            const facturacionStr = $('#facturacionTotal').val().replace(/[,.]/g, '');
-            const facturacion = parseFloat(facturacionStr) || 0;
-
-            // Formatear números con separadores de miles
-            const formatearNumero = (numero) => {
-                return numero.toLocaleString('es-AR', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 0
-                });
-            };
-
-            // Actualizar campos con formato
-            $('#totalGastos').val(formatearNumero(totalGastos));
-            $('#gananciaNeta').val(formatearNumero(facturacion - totalGastos));
-        }
-
-        // Inicializar calculadora
-        calcularFacturacion();
-    });
-
+    $('#exportarGastos').click(exportarGastosCSV);
+});
 
 </script>
 {% endblock %}
