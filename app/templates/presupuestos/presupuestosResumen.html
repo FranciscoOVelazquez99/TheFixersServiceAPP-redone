@@ -7,6 +7,58 @@
 <h1>Resumen de Presupuestos</h1>
 {% endblock %}
 
+{% block head %}
+<style>
+    /* Estilos del botón toggle */
+    #toggleCalculadora {
+        position: fixed;
+        right: 0;
+        top: 50%;
+        transform: translateY(-50%) translateX(0);
+        z-index: 1000;
+        border-radius: 8px 0 0 8px;
+        padding: 1rem 0.5rem;
+        transition: transform 0.3s ease-in-out;
+    }
+
+    #toggleCalculadora.active {
+        transform: translateY(-50%) translateX(-400px);
+    }
+
+    /* Estilos de la sidebar */
+    .calculadora-sidebar {
+        position: fixed;
+        right: -400px;
+        top: 0;
+        width: 400px;
+        height: 100vh;
+        background-color: white;
+        box-shadow: -2px 0 5px rgba(0,0,0,0.2);
+        transition: right 0.3s ease-in-out;
+        z-index: 999;
+        overflow-y: auto;
+        padding: 0;
+    }
+
+    .calculadora-sidebar.active {
+        right: 0;
+    }
+
+    /* Ajuste responsive */
+    @media (max-width: 576px) {
+        .calculadora-sidebar {
+            width: 100% !important;
+            right: -100% !important;
+        }
+        
+        #toggleCalculadora.active {
+            transform: translateY(-50%) translateX(-100vw);
+        }
+    }
+</style>
+{% endblock %}
+
+
 {% block body %}
 <div class="container-fluid">
     <!-- Tarjetas de resumen -->
@@ -97,6 +149,87 @@
         </div>
     </div>
 </div>
+
+<!-- Botón flotante -->
+<button class="btn btn-primary" id="toggleCalculadora">
+    <i class="bi bi-calculator"></i>
+</button>
+
+<!-- Sidebar calculadora (inicialmente oculta) -->
+<div class="calculadora-sidebar" id="calculadoraSidebar" >
+    <div class="card h-100 border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Calculadora de Ganancias</h5>
+            <button class="btn btn-sm btn-outline-light" id="cerrarCalculadora">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="card-body">
+            <!-- Selector de período -->
+            <div class="mb-3">
+                <label class="form-label">Período</label>
+                <select class="form-select" id="periodoFacturacion">
+                    <option value="todo">Todo</option>
+                    <option value="mes">Este Mes</option>
+                    <option value="semana">Esta Semana</option>
+                    <option value="personalizado">Personalizado</option>
+                </select>
+            </div>
+
+            <!-- Fechas personalizadas (inicialmente ocultas) -->
+            <div id="fechasPersonalizadas" class="mb-3" style="display: none;">
+                <div class="row">
+                    <div class="col-6">
+                        <label class="form-label">Desde</label>
+                        <input type="date" class="form-control" id="fechaInicio">
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label">Hasta</label>
+                        <input type="date" class="form-control" id="fechaFin">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resumen de facturación -->
+            <div class="mb-3">
+                <label class="form-label">Facturación Total</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control" id="facturacionTotal" readonly>
+                </div>
+            </div>
+
+            <!-- Lista de gastos -->
+            <div class="mb-3">
+                <label class="form-label">Gastos</label>
+                <div id="listaGastos">
+                    <!-- Los gastos se agregarán dinámicamente -->
+                </div>
+                <button class="btn btn-sm btn-outline-primary mt-2" id="agregarGasto">
+                    <i class="bi bi-plus-circle"></i> Agregar Gasto
+                </button>
+            </div>
+
+            <!-- Total de gastos -->
+            <div class="mb-3">
+                <label class="form-label">Total Gastos</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control" id="totalGastos" readonly>
+                </div>
+            </div>
+
+            <!-- Ganancia neta -->
+            <div class="mb-3">
+                <label class="form-label">Ganancia Neta</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <input type="text" class="form-control" id="gananciaNeta" readonly>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block script %}
@@ -145,7 +278,7 @@
                             <button class="btn btn-sm btn-primary ver-presupuesto" data-id="${p.id}">
                                 <i class="bi bi-eye"></i>
                             </button>
-                            <button class="btn btn-sm btn-warning editar-presupuesto" data-id="${p.id}">
+                            <button class="btn btn-sm btn-warning editar-presupuesto" data-id="${p.reparacion_id}">
                                 <i class="bi bi-pencil"></i>
                             </button>
                         </td>
@@ -265,5 +398,184 @@
             window.location.href = `/presupuestos/${id}`;
         });
     });
+
+
+    $(document).ready(function() {        // Funcionalidad del botón toggle y sidebar
+        
+        const toggleBtn = $('#toggleCalculadora');
+        const sidebar = $('#calculadoraSidebar');
+        const contenidoPrincipal = $('#contenidoPrincipal');
+        const cerrarBtn = $('#cerrarCalculadora');
+
+        function toggleCalculadora() {
+            sidebar.toggleClass('active');
+            toggleBtn.toggleClass('active');
+            
+            // Añadir este console.log para debugging
+            console.log('Toggle clicked', {
+                sidebarActive: sidebar.hasClass('active'),
+                sidebarRight: sidebar.css('right'),
+                toggleActive: toggleBtn.hasClass('active')
+            });
+        }
+
+        toggleBtn.click(toggleCalculadora);
+        cerrarBtn.click(toggleCalculadora);
+
+        // Cerrar al hacer clic fuera
+        $(document).click(function(event) {
+            if (!$(event.target).closest('#calculadoraSidebar, #toggleCalculadora').length 
+                && sidebar.hasClass('active')) {
+                toggleCalculadora();
+            }
+        });
+
+        // Prevenir que los clics dentro de la calculadora la cierren
+        sidebar.click(function(event) {
+            event.stopPropagation();
+        });
+
+        // Ajustar posición del botón al hacer scroll
+        let lastScrollTop = 0;
+        $(window).scroll(function() {
+            const st = $(this).scrollTop();
+            if (st > lastScrollTop && st > 200) {
+                // Scroll hacia abajo
+                toggleBtn.css('transform', 'translateY(-100%) translateX(0)');
+            } else {
+                // Scroll hacia arriba
+                toggleBtn.css('transform', 'translateY(-50%) translateX(0)');
+                if (toggleBtn.hasClass('active')) {
+                    toggleBtn.css('transform', 'translateY(-50%) translateX(-400px)');
+                }
+            }
+            lastScrollTop = st;
+        });
+
+    });
+
+
+    
+        // Funciones para la calculadora de ganancias
+        $(document).ready(function() {        // Funcionalidad del botón toggle y sidebar
+      
+        let gastos = [];
+
+        // Manejador del selector de período
+        $('#periodoFacturacion').change(function() {
+            const periodo = $(this).val();
+            $('#fechasPersonalizadas').toggle(periodo === 'personalizado');
+            calcularFacturacion();
+        });
+
+        // Manejador de fechas personalizadas
+        $('#fechaInicio, #fechaFin').change(function() {
+            if ($('#periodoFacturacion').val() === 'personalizado') {
+                calcularFacturacion();
+            }
+        });
+
+        // Agregar nuevo gasto
+        $('#agregarGasto').click(function() {
+            const gastoHtml = `
+                <div class="input-group mb-2 gasto-item">
+                    <input type="text" class="form-control form-control-sm descripcion-gasto" placeholder="Descripción">
+                    <span class="input-group-text">$</span>
+                    <input type="number" class="form-control form-control-sm monto-gasto" value="0">
+                    <button class="btn btn-sm btn-outline-danger eliminar-gasto">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+            `;
+            $('#listaGastos').append(gastoHtml);
+        });
+
+        // Eliminar gasto
+        $(document).on('click', '.eliminar-gasto', function() {
+            $(this).closest('.gasto-item').remove();
+            calcularTotales();
+        });
+
+        // Calcular al cambiar montos de gastos
+        $(document).on('input', '.monto-gasto', function() {
+            calcularTotales();
+        });
+
+        function calcularFacturacion() {
+            const periodo = $('#periodoFacturacion').val();
+            let fechaInicio, fechaFin;
+
+            switch (periodo) {
+                case 'mes':
+                    fechaInicio = new Date();
+                    fechaInicio.setDate(1);
+                    fechaFin = new Date();
+                    break;
+                case 'semana':
+                    fechaInicio = new Date();
+                    fechaInicio.setDate(fechaInicio.getDate() - fechaInicio.getDay());
+                    fechaFin = new Date();
+                    break;
+                case 'personalizado':
+                    fechaInicio = new Date($('#fechaInicio').val());
+                    fechaFin = new Date($('#fechaFin').val());
+                    break;
+                default:
+                    fechaInicio = null;
+                    fechaFin = null;
+            }
+
+            // Llamada al servidor para obtener la facturación
+            $.ajax({
+                url: '{{ url_for("main.get_facturacion") }}',
+                method: 'GET',
+                data: {
+                    fecha_inicio: fechaInicio?.toISOString(),
+                    fecha_fin: fechaFin?.toISOString()
+                },
+                success: function(response) {
+                    if (response.success) {
+                        const formatearNumero = (numero) => {
+                            return numero.toLocaleString('es-AR', {
+                                minimumFractionDigits: 0,
+                                maximumFractionDigits: 0
+                            });
+                        };
+                        $('#facturacionTotal').val(formatearNumero(response.facturacion));
+                        calcularTotales();
+                    }
+                }
+            });
+        }
+
+        function calcularTotales() {
+            // Calcular total de gastos
+            let totalGastos = 0;
+            $('.monto-gasto').each(function() {
+                totalGastos += parseFloat($(this).val() || 0);
+            });
+
+            // Obtener facturación y limpiar el formato
+            const facturacionStr = $('#facturacionTotal').val().replace(/[,.]/g, '');
+            const facturacion = parseFloat(facturacionStr) || 0;
+
+            // Formatear números con separadores de miles
+            const formatearNumero = (numero) => {
+                return numero.toLocaleString('es-AR', {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                });
+            };
+
+            // Actualizar campos con formato
+            $('#totalGastos').val(formatearNumero(totalGastos));
+            $('#gananciaNeta').val(formatearNumero(facturacion - totalGastos));
+        }
+
+        // Inicializar calculadora
+        calcularFacturacion();
+    });
+
+
 </script>
 {% endblock %}

@@ -507,6 +507,7 @@ def get_presupuestos_resumen():
         # Preparar datos para el frontend
         presupuestos_data = [{
             'id': p.id,
+            'reparacion_id': p.reparacion_id,
             'cliente': p.reparacion.cliente,
             'tipo_reparacion': p.tipo_reparacion,
             'fecha': p.fecha_creacion.strftime('%Y-%m-%d'),
@@ -532,6 +533,36 @@ def get_presupuestos_resumen():
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/facturacion')
+@login_required
+def get_facturacion():
+    try:
+        fecha_inicio = request.args.get('fecha_inicio')
+        fecha_fin = request.args.get('fecha_fin')
+        
+        query = Presupuesto.query.filter_by(aprobado=True)
+        
+        if fecha_inicio and fecha_fin:
+            fecha_inicio = datetime.fromisoformat(fecha_inicio.split('T')[0])
+            fecha_fin = datetime.fromisoformat(fecha_fin.split('T')[0])
+            query = query.filter(
+                Presupuesto.fecha_creacion >= fecha_inicio,
+                Presupuesto.fecha_creacion <= fecha_fin
+            )
+        
+        total_facturado = sum(p.total for p in query.all())
+        
+        return jsonify({
+            'success': True,
+            'facturacion': float(total_facturado)
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 
 @main_bp.route('/tablero')
 @login_required
