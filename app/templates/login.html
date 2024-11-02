@@ -14,6 +14,13 @@
   
 </head>
 <body>
+
+    <div class="stars">
+        <!-- Generamos 50 estrellas -->
+        {% for _ in range(50) %}
+            <div class="star"></div>
+        {% endfor %}
+    </div>
     
     <form method="POST" action="{{ url_for('main.login') }}" class="login-form">
         {{ form.hidden_tag() }}

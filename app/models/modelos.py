@@ -130,7 +130,7 @@ def crear_admin():
         nuevo_usuario = Usuario(
             usuario="admin",
             contraseña=bcrypt.generate_password_hash("admin").decode('utf-8'),  # Usar la instancia bcrypt
-            rol="admin",
+            rol="ADMIN",
             fecha_registro=datetime.now(UTC)
         )
         session.add(nuevo_usuario)

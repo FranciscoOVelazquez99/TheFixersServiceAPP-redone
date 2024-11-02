@@ -9,44 +9,244 @@
 
 
 {% block body %}
-<div class="card" style="width: 18rem;">
-    <img src="/static/img/profile.jpg" class="card-img-top" alt="que iria aqui?">
-    <div class="card-body">
-      <h5 class="card-title">Reparaciones pendientes</h5>
-      <p class="card-text">Revisa las reparaciones pendientes.</p>
-      <a href="{{ url_for('main.reparaciones') }}" class="btn btn-primary">Ir</a>
-    </div>
+<div class="row g-4">
+  <!-- Tarjeta de Reparaciones -->
+  <div class="col-md-6 col-lg-3">
+      <div class="card h-100">
+          <div class="card-body">
+              <div class="d-flex align-items-center mb-3">
+                  <i class="bi bi-tools fs-1 text-primary me-3"></i>
+                  <div>
+                      <h5 class="card-title mb-0">Reparaciones</h5>
+                      <small class="text-muted">Estado actual</small>
+                  </div>
+              </div>
+              <div class="row text-center">
+                  <div class="col">
+                      <h3 class="mb-1">{{ reparaciones_pendientes }}</h3>
+                      <small class="text-muted">Pendientes</small>
+                  </div>
+                  <div class="col">
+                      <h3 class="mb-1">{{ reparaciones_proceso }}</h3>
+                      <small class="text-muted">En proceso</small>
+                  </div>
+              </div>
+              <a href="{{ url_for('main.reparaciones') }}" class="btn btn-primary mt-3 w-100">
+                  Ver reparaciones
+              </a>
+          </div>
+      </div>
+  </div>
+
+  <!-- Tarjeta de Tareas -->
+  <div class="col-md-6 col-lg-3">
+      <div class="card h-100">
+          <div class="card-body">
+              <div class="d-flex align-items-center mb-3">
+                  <i class="bi bi-list-task fs-1 text-success me-3"></i>
+                  <div>
+                      <h5 class="card-title mb-0">Mis Tareas</h5>
+                      <small class="text-muted">Asignadas a mí</small>
+                  </div>
+              </div>
+              <div class="row text-center">
+                  <div class="col">
+                      <h3 class="mb-1">{{ tareas_pendientes }}</h3>
+                      <small class="text-muted">Pendientes</small>
+                  </div>
+                  <div class="col">
+                      <h3 class="mb-1">{{ tareas_vencidas }}</h3>
+                      <small class="text-warning">Vencidas</small>
+                  </div>
+              </div>
+              <a href="{{ url_for('main.tablero') }}" class="btn btn-success mt-3 w-100">
+                  Ver tablero
+              </a>
+          </div>
+      </div>
+  </div>
+
+  <!-- Tarjeta de Presupuestos -->
+  <div class="col-md-6 col-lg-3">
+      <div class="card h-100">
+          <div class="card-body">
+              <div class="d-flex align-items-center mb-3">
+                  <i class="bi bi-currency-dollar fs-1 text-warning me-3"></i>
+                  <div>
+                      <h5 class="card-title mb-0">Presupuestos</h5>
+                      <small class="text-muted">Últimos 30 días</small>
+                  </div>
+              </div>
+              <div class="row text-center">
+                  <div class="col">
+                      <h3 class="mb-1">{{ presupuestos_total }}</h3>
+                      <small class="text-muted">Total</small>
+                  </div>
+                  <div class="col">
+                      <h3 class="mb-1">${{ facturacion_mes }}</h3>
+                      <small class="text-muted">Facturado</small>
+                  </div>
+              </div>
+              <a href="{{ url_for('main.presupuestosResumen') }}" class="btn btn-warning mt-3 w-100">
+                  Ver presupuestos
+              </a>
+          </div>
+      </div>
+  </div>
+
+  <!-- Tarjeta de Usuarios -->
+  <div class="col-md-6 col-lg-3">
+      <div class="card h-100">
+          <div class="card-body">
+              <div class="d-flex align-items-center mb-3">
+                  <i class="bi bi-people fs-1 text-info me-3"></i>
+                  <div>
+                      <h5 class="card-title mb-0">Usuarios</h5>
+                      <small class="text-muted">Equipo activo</small>
+                  </div>
+              </div>
+              <div class="row text-center">
+                  <div class="col">
+                      <h3 class="mb-1">{{ usuarios_total }}</h3>
+                      <small class="text-muted">Total</small>
+                  </div>
+                  <div class="col">
+                      <h3 class="mb-1">{{ tecnicos_activos }}</h3>
+                      <small class="text-muted">Técnicos</small>
+                  </div>
+              </div>
+              <a href="{{ url_for('main.listar_usuarios') }}" class="btn btn-info mt-3 w-100">
+                  Ver usuarios
+              </a>
+          </div>
+      </div>
+  </div>
 </div>
-<div class="card" aria-hidden="true" style="width: 18rem;">
-    <img src="/static/img/bg.jpg" class="card-img-top" alt="...">
-    <div class="card-body">
-      <h5 class="card-title placeholder-glow">
-        <span class="placeholder col-6"></span>
-      </h5>
-      <p class="card-text placeholder-glow">
-        <span class="placeholder col-7"></span>
-        <span class="placeholder col-4"></span>
-        <span class="placeholder col-4"></span>
-        <span class="placeholder col-6"></span>
-        <span class="placeholder col-8"></span>
-      </p>
-      <a class="btn btn-primary disabled placeholder col-6" aria-disabled="true"></a>
-    </div>
+
+<!-- Gráficos o información adicional -->
+<div class="row mt-4">
+  <div class="col-md-6">
+      <div class="card">
+          <div class="card-body">
+              <h5 class="card-title">Reparaciones por estado</h5>
+              <div style="height: 300px;"> <!-- Contenedor con altura fija -->
+                  <canvas id="reparacionesChart"></canvas>
+              </div>
+          </div>
+      </div>
+  </div>
+  <div class="col-md-6">
+      <div class="card">
+          <div class="card-body">
+              <h5 class="card-title">Facturación mensual</h5>
+              <div style="height: 300px;"> <!-- Contenedor con altura fija -->
+                  <canvas id="facturacionChart"></canvas>
+              </div>
+          </div>
+      </div>
+  </div>
 </div>
-<div class="card" aria-hidden="true" style="width: 18rem;">
-    <img src="/static/img/bg2.jpg" class="card-img-top" alt="...">
-    <div class="card-body">
-      <h5 class="card-title placeholder-glow">
-        <span class="placeholder col-6"></span>
-      </h5>
-      <p class="card-text placeholder-glow">
-        <span class="placeholder col-7"></span>
-        <span class="placeholder col-4"></span>
-        <span class="placeholder col-4"></span>
-        <span class="placeholder col-6"></span>
-        <span class="placeholder col-8"></span>
-      </p>
-      <a class="btn btn-primary disabled placeholder col-6" aria-disabled="true"></a>
-    </div>
-</div>
+{% endblock %}
+
+{% block script %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Configuración común para los gráficos
+const commonOptions = {
+    responsive: true,
+    maintainAspectRatio: false
+};
+
+// Colores para los gráficos
+const colors = {
+    reparaciones: ['#ffc107', '#0d6efd', '#198754', '#dc3545'],
+    facturacion: '#198754'
+};
+
+// Función para cargar el gráfico de reparaciones
+async function cargarGraficoReparaciones() {
+    try {
+        const response = await fetch('/api/estadisticas/reparaciones');
+        const data = await response.json();
+        
+        const ctx = document.getElementById('reparacionesChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    data: data.datos,
+                    backgroundColor: colors.reparaciones,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                ...commonOptions,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error al cargar el gráfico de reparaciones:', error);
+    }
+}
+
+// Función para cargar el gráfico de facturación
+async function cargarGraficoFacturacion() {
+    try {
+        const response = await fetch('/api/estadisticas/facturacion');
+        const data = await response.json();
+        
+        const ctx = document.getElementById('facturacionChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [{
+                    label: 'Facturación mensual',
+                    data: data.datos,
+                    backgroundColor: colors.facturacion,
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                ...commonOptions,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return '$' + context.raw.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Error al cargar el gráfico de facturación:', error);
+    }
+}
+
+// Cargar los gráficos cuando el documento esté listo
+document.addEventListener('DOMContentLoaded', () => {
+    cargarGraficoReparaciones();
+    cargarGraficoFacturacion();
+});
+</script>
 {% endblock %}

@@ -86,7 +86,99 @@ def login():
 @main_bp.route('/home')
 @login_required
 def home():
-    return render_template('home.html')
+    # Obtener estadísticas de reparaciones
+    reparaciones_pendientes = Reparacion.query.filter_by(estado='Pendiente').count()
+    reparaciones_proceso = Reparacion.query.filter_by(estado='En proceso').count()
+    
+    # Obtener estadísticas de tareas del usuario actual
+    tareas_pendientes = Tarea.query.filter_by(
+        asignado_a_id=current_user.id,
+        estado='pendiente'
+    ).count()
+    
+    # Tareas vencidas
+    tareas_vencidas = Tarea.query.filter(
+        Tarea.asignado_a_id == current_user.id,
+        Tarea.fecha_vencimiento < datetime.now(),
+        Tarea.estado != 'completada'
+    ).count()
+    
+    # Estadísticas de presupuestos
+    fecha_inicio = datetime.now() - timedelta(days=30)
+    presupuestos = Presupuesto.query.filter(
+        Presupuesto.fecha_creacion >= fecha_inicio
+    ).all()
+    presupuestos_total = len(presupuestos)
+    facturacion_mes = sum(p.total for p in presupuestos if p.aprobado)
+    
+    # Estadísticas de usuarios
+    usuarios_total = Usuario.query.count()
+    tecnicos_activos = Usuario.query.filter(
+        Usuario.rol.in_(['SUPERVISOR', 'OPERADOR'])
+    ).count()
+    
+    return render_template('home.html',
+        reparaciones_pendientes=reparaciones_pendientes,
+        reparaciones_proceso=reparaciones_proceso,
+        tareas_pendientes=tareas_pendientes,
+        tareas_vencidas=tareas_vencidas,
+        presupuestos_total=presupuestos_total,
+        facturacion_mes="{:,.2f}".format(facturacion_mes),
+        usuarios_total=usuarios_total,
+        tecnicos_activos=tecnicos_activos
+    )
+
+@main_bp.route('/api/estadisticas/reparaciones')
+@login_required
+def get_estadisticas_reparaciones():
+    try:
+        estados = ['Pendiente', 'En proceso', 'Completada', 'Cancelada']
+        datos = []
+        for estado in estados:
+            count = Reparacion.query.filter_by(estado=estado).count()
+            datos.append(count)
+            
+        return jsonify({
+            'labels': estados,
+            'datos': datos
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/estadisticas/facturacion')
+@login_required
+def get_estadisticas_facturacion():
+    try:
+        # Obtener los últimos 6 meses
+        hoy = datetime.now()
+        meses = []
+        datos = []
+        
+        for i in range(5, -1, -1):
+            fecha_inicio = (hoy - timedelta(days=30*i)).replace(day=1, hour=0, minute=0, second=0)
+            if i > 0:
+                fecha_fin = (hoy - timedelta(days=30*(i-1))).replace(day=1, hour=0, minute=0, second=0)
+            else:
+                fecha_fin = hoy
+                
+            # Obtener facturación del mes
+            facturacion = db.session.query(
+                db.func.sum(Presupuesto.total)
+            ).filter(
+                Presupuesto.fecha_creacion >= fecha_inicio,
+                Presupuesto.fecha_creacion < fecha_fin,
+                Presupuesto.aprobado == True
+            ).scalar() or 0
+            
+            meses.append(fecha_inicio.strftime('%B %Y'))
+            datos.append(float(facturacion))
+            
+        return jsonify({
+            'labels': meses,
+            'datos': datos
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @main_bp.route('/static/')
 def serve_static(path):
@@ -161,6 +253,12 @@ def editar_usuario(id):
     if 'avatar' in request.files:
         file = request.files['avatar']
         if file and allowed_file(file.filename):
+            # Borrar avatar anterior si no es el default
+            if usuario.avatar and 'img/profile.jpg' not in usuario.avatar:
+                avatar_path = os.path.join('app/static', usuario.avatar)
+                if os.path.exists(avatar_path):
+                    os.remove(avatar_path)
+                    
             filename = secure_filename(file.filename)
             if not os.path.exists(UPLOAD_FOLDER_AVATARS):
                 os.makedirs(UPLOAD_FOLDER_AVATARS)
