@@ -9,6 +9,9 @@
     <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuevaTareaModal">
         <i class="bi bi-plus-lg"></i> Nueva Tarea
     </button>
+    <button class="btn btn-secondary" onclick="toggleArchivedSidebar()">
+        <i class="bi bi-archive"></i> Archivadas
+    </button>
 </div> 
 
 {% endblock %}
@@ -19,6 +22,33 @@
 {% block head %}
 
 <style>
+/* checkpoint */
+/* checkpoint */
+/* checkpoint */
+/* checkpoint */
+/* checkpoint */
+
+@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+
     .page-container {
         height: calc(100vh - 60px); /* Ajusta este valor según el alto de tu navbar */
         padding: 1rem;
@@ -50,6 +80,8 @@
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         cursor: move;
         user-select: none; /* Previene la selección de texto al arrastrar */
+        animation: slideIn 0.3s ease forwards;
+        opacity: 0;
     }
     
     .kanban-card:hover {
@@ -57,8 +89,14 @@
     }
     
     .kanban-column.drag-over {
-        background: #e9ecef;
-        border: 2px dashed #6c757d;
+        background-color: rgba(0, 123, 255, 0.1);
+        transition: background-color 0.2s ease;
+    }
+
+    .kanban-card.dragging {
+        opacity: 0.5;
+        transform: scale(1.05);
+        transition: transform 0.2s ease, opacity 0.2s ease;
     }
 
     .column-header {
@@ -135,6 +173,49 @@
         color: #dc3545;
     }
     
+
+    .main-content {
+        position: relative;
+        height: calc(100vh - 120px);
+    }
+
+    .archived-sidebar {
+        position: fixed;
+        right: -400px;
+        top: 60px;
+        width: 400px;
+        height: calc(100vh - 60px);
+        background: white;
+        box-shadow: -2px 0 5px rgba(0,0,0,0.1);
+        transition: right 0.3s ease;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .archived-sidebar.show {
+        right: 0;
+    }
+
+    .sidebar-header {
+        padding: 1rem;
+        border-bottom: 1px solid #dee2e6;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .archived-tasks-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
+    .archived-task-card {
+        margin-bottom: 1rem;
+        animation: fadeIn 0.4s ease forwards;
+    }
+
     .priority-alta { border-left: 4px solid #dc3545; }
     .priority-media { border-left: 4px solid #ffc107; }
     .priority-baja { border-left: 4px solid #28a745; }
@@ -144,9 +225,7 @@
 
 {% block body %}
 <div class="container-fluid">
-    <!-- Header con el botón de nueva tarea -->
-
-
+ 
     <!-- Tablero Kanban -->
     <div class="kanban-board">
         <div class="kanban-column" id="pendiente" ondrop="drop(event)" ondragover="allowDrop(event)">
@@ -176,6 +255,18 @@
             </div>
         </div>
     </div>
+
+        <!-- Sidebar de tareas archivadas (oculto por defecto) -->
+        <div class="archived-sidebar" id="archivedSidebar">
+            <div class="sidebar-header">
+                <h5>Tareas Archivadas</h5>
+                <button class="btn-close" onclick="toggleArchivedSidebar()"></button>
+            </div>
+            <div class="archived-tasks-container">
+                <!-- Las tareas archivadas se cargarán aquí -->
+            </div>
+        </div>
+
 </div>
 {% endblock %}
 
@@ -270,7 +361,9 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-danger" onclick="eliminarTarea()">Eliminar</button>
+                <button type="button" class="btn btn-secondary" onclick="archivarTarea()">
+                    <i class="bi bi-archive"></i> Archivar
+                </button>
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-primary" onclick="actualizarTarea()">Guardar Cambios</button>
             </div>
@@ -284,10 +377,14 @@
 <script>
 function allowDrop(ev) {
     ev.preventDefault();
+    // Agregar efecto visual a la columna
+    ev.currentTarget.classList.add('drag-over');
 }
 
 function drag(ev) {
     ev.dataTransfer.setData("text", ev.target.id);
+    // Agregar efecto visual a la tarjeta
+    ev.target.classList.add('dragging');
 }
 
 function drop(ev) {
@@ -296,11 +393,23 @@ function drop(ev) {
     const column = ev.currentTarget;
     const newStatus = column.id;
     
-    // Verificar que el estado sea válido
+    // Remover efectos visuales
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        col.classList.remove('drag-over');
+    });
+    document.getElementById(taskId).classList.remove('dragging');
+    
     if (['pendiente', 'en_proceso', 'completada'].includes(newStatus)) {
         actualizarEstadoTarea(taskId, newStatus);
     }
 }
+
+// Agregar evento para remover el efecto de la columna cuando el cursor sale de ella
+document.querySelectorAll('.kanban-column').forEach(column => {
+    column.addEventListener('dragleave', (ev) => {
+        ev.currentTarget.classList.remove('drag-over');
+    });
+});
 
 function cargarTareas() {
     fetch('/api/tareas')
@@ -310,48 +419,53 @@ function cargarTareas() {
                 container.innerHTML = '';
             });
             
-            data.forEach(tarea => {
-                // Preparar el elemento de fecha solo si existe
-                let fechaElement = '';
-                if (tarea.fecha_vencimiento) {
-                    const fechaVencimiento = new Date(tarea.fecha_vencimiento);
-                    const hoy = new Date();
-                    const diasRestantes = Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24));
+            // Agregar las tarjetas con un pequeño retraso entre cada una
+            data.forEach((tarea, index) => {
+                setTimeout(() => {
+                    const fechaElement = tarea.fecha_vencimiento ? crearElementoFecha(tarea.fecha_vencimiento) : '';
                     
-                    let dueDateClass = 'due-date-ok';
-                    if (diasRestantes < 0) {
-                        dueDateClass = 'due-date-expired';
-                    } else if (diasRestantes <= 3) {
-                        dueDateClass = 'due-date-warning';
-                    }
-                    
-                    fechaElement = `
-                        <div class="due-date ${dueDateClass}">
-                            <i class="bi bi-clock"></i>
-                            <small>${tarea.fecha_vencimiento}</small>
+                    const tareaHTML = `
+                        <div class="kanban-card priority-${tarea.prioridad}" 
+                             id="tarea-${tarea.id}" 
+                             draggable="true" 
+                             ondragstart="drag(event)"
+                             style="animation-delay: ${index * 0.1}s">
+                            <i class="bi bi-pencil-square edit-icon" onclick="editarTarea(${tarea.id})"></i>
+                            <h6>${tarea.titulo}</h6>
+                            <p class="small text-muted mb-1">${tarea.descripcion}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="badge bg-secondary">${tarea.asignado_a}</span>
+                                ${fechaElement}
+                            </div>
                         </div>
                     `;
-                }
-                
-                const tareaHTML = `
-                    <div class="kanban-card priority-${tarea.prioridad}" 
-                         id="tarea-${tarea.id}" 
-                         draggable="true" 
-                         ondragstart="drag(event)">
-                        <i class="bi bi-pencil-square edit-icon" onclick="editarTarea(${tarea.id})"></i>
-                        <h6>${tarea.titulo}</h6>
-                        <p class="small text-muted mb-1">${tarea.descripcion}</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span class="badge bg-secondary">${tarea.asignado_a}</span>
-                            ${fechaElement}
-                        </div>
-                    </div>
-                `;
-                
-                document.querySelector(`#${tarea.estado} .tasks-container`).innerHTML += tareaHTML;
+                    
+                    document.querySelector(`#${tarea.estado} .tasks-container`).insertAdjacentHTML('beforeend', tareaHTML);
+                }, index * 100); // 100ms de retraso entre cada tarjeta
             });
         });
 }
+
+function crearElementoFecha(fecha) {
+    const fechaVencimiento = new Date(fecha);
+    const hoy = new Date();
+    const diasRestantes = Math.ceil((fechaVencimiento - hoy) / (1000 * 60 * 60 * 24));
+    
+    let dueDateClass = 'due-date-ok';
+    if (diasRestantes < 0) {
+        dueDateClass = 'due-date-expired';
+    } else if (diasRestantes <= 3) {
+        dueDateClass = 'due-date-warning';
+    }
+    
+    return `
+        <div class="due-date ${dueDateClass}">
+            <i class="bi bi-clock"></i>
+            <small>${fecha}</small>
+        </div>
+    `;
+}
+
 
 function crearTarea() {
     const formData = new FormData(document.getElementById('nuevaTareaForm'));
@@ -495,6 +609,74 @@ function eliminarTarea() {
     });
 }
 
+function toggleArchivedSidebar() {
+    const sidebar = document.getElementById('archivedSidebar');
+    sidebar.classList.toggle('show');
+    if (sidebar.classList.contains('show')) {
+        cargarTareasArchivadas();
+    }
+}
+
+function cargarTareasArchivadas() {
+    fetch('/api/tareas/archivadas')
+        .then(response => response.json())
+        .then(data => {
+            const container = document.querySelector('.archived-tasks-container');
+            container.innerHTML = '';
+            
+            data.forEach((tarea, index) => {
+                setTimeout(() => {
+                    const tareaHTML = `
+                        <div class="kanban-card archived-task-card priority-${tarea.prioridad}"
+                             style="animation-delay: ${index * 0.1}s">
+                            <h6>${tarea.titulo}</h6>
+                            <p class="small text-muted mb-1">${tarea.descripcion}</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <button class="btn btn-sm btn-primary" onclick="restaurarTarea(${tarea.id})">
+                                    Restaurar
+                                </button>
+                                <button class="btn btn-sm btn-danger" onclick="eliminarTarea(${tarea.id})">
+                                    Eliminar
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', tareaHTML);
+                }, index * 100);
+            });
+        });
+}
+
+function archivarTarea() {
+    const tareaId = document.getElementById('edit_tarea_id').value;
+    fetch(`/api/tareas/${tareaId}/archivar`, {
+        method: 'PUT'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const modal = bootstrap.Modal.getInstance(document.getElementById('editarTareaModal'));
+            modal.hide();
+            cargarTareas();
+            if (document.getElementById('archivedSidebar').classList.contains('show')) {
+                cargarTareasArchivadas();
+            }
+        }
+    });
+}
+
+function restaurarTarea(id) {
+    fetch(`/api/tareas/${id}/restaurar`, {
+        method: 'PUT'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            cargarTareasArchivadas();
+            cargarTareas();
+        }
+    });
+}
 
 
 // Cargar tareas al iniciar

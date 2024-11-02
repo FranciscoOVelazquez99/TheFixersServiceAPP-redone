@@ -501,7 +501,7 @@ def tablero():
 @main_bp.route('/api/tareas', methods=['GET'])
 @login_required
 def get_tareas():
-    tareas = Tarea.query.all()
+    tareas = Tarea.query.filter(Tarea.estado != 'archivada').all()
     return jsonify([{
         'id': t.id,
         'titulo': t.titulo,
@@ -537,7 +537,6 @@ def crear_tarea():
         db.session.add(nueva_tarea)
         db.session.commit()
         
-        flash('Tarea creada exitosamente', 'success')
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
@@ -607,6 +606,44 @@ def eliminar_tarea(id):
     try:
         tarea = Tarea.query.get_or_404(id)
         db.session.delete(tarea)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@main_bp.route('/api/tareas/archivadas', methods=['GET'])
+@login_required
+def get_tareas_archivadas():
+    tareas = Tarea.query.filter_by(estado='archivada').all()
+    return jsonify([{
+        'id': t.id,
+        'titulo': t.titulo,
+        'descripcion': t.descripcion,
+        'prioridad': t.prioridad,
+        'asignado_a': t.asignado_a.usuario if t.asignado_a else 'Sin asignar',
+        'fecha_vencimiento': t.fecha_vencimiento.strftime('%Y-%m-%d') if t.fecha_vencimiento else None
+    } for t in tareas])
+
+@main_bp.route('/api/tareas/<int:id>/archivar', methods=['PUT'])
+@login_required
+def archivar_tarea(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        tarea.estado = 'archivada'
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/tareas/<int:id>/restaurar', methods=['PUT'])
+@login_required
+def restaurar_tarea(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        tarea.estado = 'pendiente'
         db.session.commit()
         return jsonify({'success': True})
     except Exception as e:
