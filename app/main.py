@@ -516,9 +516,7 @@ def get_tareas():
 @login_required
 def crear_tarea():
     try:
-        # Depuración: imprimir los datos recibidos
-        print("Datos del formulario:", request.form)
-        
+
         fecha_vencimiento = None
         if request.form.get('fecha_vencimiento'):
             try:
@@ -559,6 +557,63 @@ def actualizar_estado_tarea(id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@main_bp.route('/api/tareas/<int:id>', methods=['GET'])
+@login_required
+def obtener_tarea(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        return jsonify({
+            'id': tarea.id,
+            'titulo': tarea.titulo,
+            'descripcion': tarea.descripcion,
+            'estado': tarea.estado,
+            'prioridad': tarea.prioridad,
+            'asignado_a_id': tarea.asignado_a_id,
+            'fecha_vencimiento': tarea.fecha_vencimiento.strftime('%Y-%m-%d') if tarea.fecha_vencimiento else None
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/tareas/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_tarea(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        form_data = request.form
+
+        # Actualizar los campos de la tarea
+        tarea.titulo = form_data.get('titulo', tarea.titulo)
+        tarea.descripcion = form_data.get('descripcion', tarea.descripcion)
+        tarea.prioridad = form_data.get('prioridad', tarea.prioridad)
+        tarea.asignado_a_id = form_data.get('asignado_a_id', tarea.asignado_a_id)
+        
+        # Manejar la fecha de vencimiento
+        if form_data.get('fecha_vencimiento'):
+            try:
+                tarea.fecha_vencimiento = datetime.strptime(form_data['fecha_vencimiento'], '%Y-%m-%d')
+            except ValueError:
+                return jsonify({'success': False, 'error': 'Formato de fecha inválido'}), 400
+
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/api/tareas/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_tarea(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        db.session.delete(tarea)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 
 @main_bp.route('/notificaciones')
 @login_required

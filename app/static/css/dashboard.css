@@ -9,8 +9,7 @@
 
 body {
     width: 100%;
-    height: 100vh;
-    background: linear-gradient(180deg, #A737FF, #7D00E0);
+    background: blueviolet;
     display: flex;
 }
 
