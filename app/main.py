@@ -83,10 +83,19 @@ def login():
         if user and bcrypt.check_password_hash(user.contraseña, form.password.data):
             login_user(user)
             flash('Bienvenido', 'success')
-            return render_template('home.html')
+            return jsonify({
+                'success': True, 
+                'redirect': url_for('main.home')
+            })
         else:
-            return render_template('login.html', form=form)
-    return render_template('login.html', form=form)
+            return jsonify({
+                'success': False,
+                'message': 'Usuario o contraseña incorrectos'
+            })
+    return render_template('login.html', form=form) if request.method == 'GET' else jsonify({
+        'success': False,
+        'message': 'Datos de formulario inválidos'
+    })
 
 @main_bp.route('/home')
 @login_required
@@ -390,6 +399,57 @@ def eliminar_reparacion(id):
         return jsonify({'success': True})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
+
+@main_bp.route('/reclamar_reparacion/<int:id>', methods=['POST'])
+@login_required
+def reclamar_reparacion(id):
+    try:
+        reparacion = Reparacion.query.get_or_404(id)
+        
+        # Si ya está reclamada por otro usuario
+        if reparacion.reclamado_por_id and reparacion.reclamado_por_id != current_user.id:
+            return jsonify({
+                'success': False, 
+                'message': f'Esta reparación ya está siendo trabajada por {reparacion.reclamado_por.usuario}'
+            }), 400
+            
+        # Si el usuario actual la reclama, la libera
+        if reparacion.reclamado_por_id == current_user.id:
+            reparacion.reclamado_por_id = None
+            reparacion.fecha_reclamado = None
+            mensaje = 'Reparación liberada'
+        else:
+            # Reclamar la reparación
+            reparacion.reclamado_por_id = current_user.id
+            reparacion.fecha_reclamado = datetime.now()
+            mensaje = 'Reparación reclamada exitosamente'
+            
+            # Crear notificación para otros técnicos
+            tecnicos = Usuario.query.filter(
+                Usuario.rol.in_(['ADMIN', 'SUPERVISOR', 'OPERADOR']),
+                Usuario.id != current_user.id
+            ).all()
+            
+            for tecnico in tecnicos:
+                crear_notificacion(
+                    usuario_id=tecnico.id,
+                    tipo='reparacion',
+                    mensaje=f'{current_user.usuario} está trabajando en la reparación de {reparacion.cliente}',
+                    referencia_id=reparacion.id
+                )
+        
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'message': mensaje,
+            'reclamado_por': current_user.usuario if reparacion.reclamado_por_id else None,
+            'fecha_reclamado': reparacion.fecha_reclamado.strftime('%Y-%m-%d %H:%M') if reparacion.fecha_reclamado else None
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 
 # Rutas para Equipos
 @main_bp.route('/agregar_equipo', methods=['POST'])

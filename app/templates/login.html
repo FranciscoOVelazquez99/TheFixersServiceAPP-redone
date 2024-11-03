@@ -22,7 +22,7 @@
         {% endfor %}
     </div>
     
-    <form method="POST" action="{{ url_for('main.login') }}" class="login-form">
+    <form method="POST" action="{{ url_for('main.login') }}" class="login-form" id="loginForm">
         {{ form.hidden_tag() }}
         <h1 class="login-title">TheFixers<span>Services</span></h1>
         <div class="input-box">
@@ -33,10 +33,42 @@
             <i class='bx bxs-lock-alt'></i>
             {{ form.password }}
         </div>
-
+    
         {{ form.submit(class="login-btn") }}
-
     </form>
 
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch('{{ url_for("main.login") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    window.location.href = data.redirect;
+                } else {
+                    // Cambiar color de estrellas a rojo gradualmente
+                    document.querySelectorAll('.star').forEach(star => {
+                        star.style.transition = 'all 1s ease';
+                        star.style.setProperty('--star-color', 'rgba(255, 0, 0, 0.8)');
+                    });
+                    
+                    // Volver al color original después de 4 segundos
+                    setTimeout(() => {
+                        document.querySelectorAll('.star').forEach(star => {
+                            star.style.transition = 'all 1s ease';
+                            star.style.setProperty('--star-color', 'rgba(255, 255, 255, 0.8)');
+                        });
+                    }, 4000);
+                }
+            });
+        });
+        </script>
 </body>
 </html>

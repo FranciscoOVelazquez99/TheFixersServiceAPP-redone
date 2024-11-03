@@ -44,7 +44,10 @@ def crear_base_datos():
                         fecha_fin DATETIME,
                         estado VARCHAR(100) NOT NULL,
                         tecnico VARCHAR(120),
-                        FOREIGN KEY (tecnico) REFERENCES usuarios(usuario)
+                        reclamado_por_id INT,
+                        fecha_reclamado DATETIME,
+                        FOREIGN KEY (tecnico) REFERENCES usuarios(usuario),
+                        FOREIGN KEY (reclamado_por_id) REFERENCES usuarios(id)
                     )
                 """,
                 'equipos': """

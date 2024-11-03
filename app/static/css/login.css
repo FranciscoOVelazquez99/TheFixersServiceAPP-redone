@@ -34,6 +34,9 @@ body {
     --star-width: calc(var(--star-tail-length) / 6);
     --fall-duration: 9s;
     --tail-fade-duration: var(--fall-duration);
+    
+    /* Agregar transición por defecto */
+    transition: all 1s ease;
 
     position: absolute;
     top: var(--top-offset);

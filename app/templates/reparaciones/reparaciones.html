@@ -50,7 +50,25 @@
                     <p data-email="{{ reparacion.email }}"><strong>Email:</strong> {{ reparacion.email }}</p>
                     <p data-descripcion="{{ reparacion.descripcion }}"><strong>Descripción:</strong> {{ reparacion.descripcion }}</p>
                     <p data-tecnico="{{ reparacion.tecnico_rel.usuario if reparacion.tecnico_rel else '' }}"><strong>Técnico:</strong> {{ reparacion.tecnico_rel.usuario if reparacion.tecnico_rel else 'Sin asignar' }}</p>
-                    
+                    <div class="mt-3 mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <button class="btn btn-sm {{ 'btn-warning' if reparacion.reclamado_por_id else 'btn-outline-warning' }} btn-reclamar"
+                                    onclick="reclamarReparacion({{ reparacion.id }}, this)"
+                                    {{ 'disabled' if reparacion.reclamado_por_id and reparacion.reclamado_por_id != current_user.id }}>
+                                <i class="bx bx-user-check"></i>
+                                {{ 'Liberar' if reparacion.reclamado_por_id == current_user.id else 'Reclamar' }}
+                            </button>
+                            {% if reparacion.reclamado_por %}
+                            <small class="text-muted">
+                                Trabajando: {{ reparacion.reclamado_por.usuario }}
+                                <br>
+                                <span title="{{ reparacion.fecha_reclamado }}">
+                                    desde {{ reparacion.fecha_reclamado.strftime('%d/%m/%Y %H:%M') }}
+                                </span>
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
                     <!-- Lista de Equipos -->
                     <div class="mt-3">
                         <h6>Equipos:</h6>
@@ -481,6 +499,70 @@ document.getElementById('editarReparacionModal').addEventListener('show.bs.modal
     
     editarReparacion(reparacionId, datos);
 });
+
+function reclamarReparacion(id, btn) {
+    fetch(`/reclamar_reparacion/${id}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Actualizar la UI
+            const card = btn.closest('.card-body');
+            const infoContainer = btn.parentElement;
+            
+            if (data.reclamado_por) {
+                // Actualizar botón
+                btn.classList.remove('btn-outline-warning');
+                btn.classList.add('btn-warning');
+                btn.innerHTML = '<i class="bx bx-user-check"></i> Liberar';
+                
+                // Agregar/actualizar info de quien reclama
+                let infoElement = infoContainer.querySelector('small') || document.createElement('small');
+                infoElement.className = 'text-muted';
+                infoElement.innerHTML = `
+                    Trabajando: ${data.reclamado_por}
+                    <br>
+                    <span title="${data.fecha_reclamado}">
+                        desde ${data.fecha_reclamado}
+                    </span>
+                `;
+                if (!infoContainer.querySelector('small')) {
+                    infoContainer.appendChild(infoElement);
+                }
+            } else {
+                // Restaurar botón
+                btn.classList.remove('btn-warning');
+                btn.classList.add('btn-outline-warning');
+                btn.innerHTML = '<i class="bx bx-user-check"></i> Reclamar';
+                
+                // Eliminar info de quien reclama
+                const infoElement = infoContainer.querySelector('small');
+                if (infoElement) infoElement.remove();
+            }
+            
+            // Mostrar mensaje
+            const toast = new bootstrap.Toast(document.createElement('div'));
+            toast.innerHTML = `
+                <div class="toast-body bg-success text-white">
+                    ${data.message}
+                </div>
+            `;
+            document.body.appendChild(toast._element);
+            toast.show();
+            
+        } else {
+            alert(data.message || 'Error al procesar la solicitud');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al procesar la solicitud');
+    });
+}
 
 </script>
 {% endblock %}

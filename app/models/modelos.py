@@ -15,8 +15,6 @@ class Usuario(db.Model, UserMixin):
     avatar = db.Column(db.String(255), default='img/profile.jpg')
     fecha_registro = Column(DateTime, default=datetime.now(UTC))
     
-    # Relación con reparaciones
-    reparaciones = relationship('Reparacion', back_populates='tecnico_rel')
     
     def __repr__(self):
         return f"<Usuario(usuario='{self.usuario}', rol='{self.rol}')>"
@@ -37,9 +35,17 @@ class Reparacion(db.Model):
     fecha_fin = Column(DateTime)
     estado = Column(String(100), nullable=False)
     tecnico = Column(String(120), ForeignKey('usuarios.usuario'))
+    reclamado_por_id = Column(Integer, ForeignKey('usuarios.id'))
+    fecha_reclamado = Column(DateTime)
     
     # Relaciones
-    tecnico_rel = relationship('Usuario', back_populates='reparaciones')
+
+    tecnico_rel = relationship('Usuario', 
+                             foreign_keys=[tecnico],
+                             backref='reparaciones')
+    reclamado_por = relationship('Usuario', 
+                                foreign_keys=[reclamado_por_id],
+                                backref='reparaciones_reclamadas')
     equipos = relationship('Equipo', back_populates='reparacion')
     presupuestos = relationship('Presupuesto', back_populates='reparacion')
     
