@@ -7,7 +7,7 @@ from wtforms.validators import DataRequired
 
 from flask_login import login_required, logout_user, LoginManager, current_user, login_user
 
-from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, db
+from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, Documento, db
 from flask_bcrypt import Bcrypt
 
 from reportlab.lib import colors
@@ -943,6 +943,15 @@ def generar_pdf_presupuesto(reparacion_id):
             fontSize=11,
             leading=16
         ))
+        styles.add(ParagraphStyle(
+            name='CustomDescription',
+            parent=styles['Normal'],
+            fontSize=10,
+            leading=12,
+            spaceBefore=6,
+            spaceAfter=6,
+            wordWrap='CJK' 
+        ))
         
         # Encabezado con logo y título
         header_data = [
@@ -989,7 +998,7 @@ def generar_pdf_presupuesto(reparacion_id):
             ['DETALLES DEL EQUIPO', ''],
             ['Marca/Modelo:', marca_modelo if marca_modelo else 'No especificado'],
             ['Número de Serie:', numero_serie if numero_serie else 'No especificado'],
-            ['Descripción:', descripcion_problema]
+            ['Descripción:', Paragraph(descripcion_problema, styles['CustomDescription'])]
         ]
         equipo_table = Table(equipo_data, colWidths=[100, 400])
         equipo_table.setStyle(TableStyle([
@@ -997,12 +1006,22 @@ def generar_pdf_presupuesto(reparacion_id):
             ('TEXTCOLOR', (0, 0), (1, 0), colors.HexColor('#1565c0')),
             ('SPAN', (0, 0), (1, 0)),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),  # Alinear al tope para descripción larga
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 12),
             ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
             ('GRID', (0, 0), (-1, -1), 1, colors.grey),
             ('PADDING', (0, 0), (-1, -1), 6),
+            # Ajustar el espacio de la celda de descripción
+            ('TOPPADDING', (1, -1), (1, -1), 12),
+            ('BOTTOMPADDING', (1, -1), (1, -1), 12),
         ]))
+
+        # Ajustar el tamaño de la tabla dinámicamente
+        equipo_table._argW[1] = 400  # Ancho fijo para la segunda columna
+        equipo_table._argH[3] = None  # Altura automática para la fila de descripción
+
+
         elements.append(equipo_table)
         elements.append(Spacer(1, 20))
         
@@ -1091,6 +1110,14 @@ def generar_pdf_presupuesto(reparacion_id):
         
         # Generar PDF
         doc.build(elements)
+
+        documento = Documento(
+            reparacion_id=reparacion.id,
+            filename=pdf_filename,
+            total=total
+        )
+        db.session.add(documento)
+        db.session.commit()
         
         # Devolver la URL del PDF generado
         pdf_url = url_for('static', filename=f'pdfs/{pdf_filename}')
@@ -1100,6 +1127,99 @@ def generar_pdf_presupuesto(reparacion_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@main_bp.route('/documentos')
+@login_required
+def documentos():
+    documentos = Documento.query.order_by(Documento.fecha_creacion.desc()).all()
+    return render_template('presupuestos/documentos.html', documentos=documentos)
+
+@main_bp.route('/api/documentos')
+@login_required
+def get_documentos():
+    cliente = request.args.get('cliente', '')
+    mes = request.args.get('mes', '')
+    year = request.args.get('year', '')
+    
+    query = Documento.query.join(Reparacion)
+    
+    if cliente:
+        query = query.filter(Reparacion.cliente.ilike(f'%{cliente}%'))
+    if mes:
+        query = query.filter(extract('month', Documento.fecha_creacion) == int(mes))
+    if year:
+        query = query.filter(extract('year', Documento.fecha_creacion) == int(year))
+    
+    documentos = query.order_by(Documento.fecha_creacion.desc()).all()
+    
+    return jsonify([{
+        'id': doc.id,
+        'fecha': doc.fecha_creacion.strftime('%d/%m/%Y %H:%M'),
+        'cliente': doc.reparacion.cliente,
+        'reparacion_id': doc.reparacion_id,
+        'total': float(doc.total),
+        'estado': doc.estado,
+        'estado_color': doc.estado_color,
+        'pdf_url': doc.pdf_url,
+        'filename': doc.filename
+    } for doc in documentos])
+
+@main_bp.route('/api/documentos/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_documento(id):
+    try:
+        documento = Documento.query.get_or_404(id)
+        # Eliminar archivo físico
+        pdf_path = os.path.join('app', 'static', 'pdfs', documento.filename)
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+        
+        db.session.delete(documento)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@main_bp.route('/descargar-pdf/<path:filename>')
+@login_required
+def descargar_pdf(filename):
+    try:
+        return send_from_directory('static/pdfs', filename, as_attachment=True)
+    except Exception as e:
+        flash('Error al descargar el archivo', 'danger')
+        return redirect(url_for('main.documentos'))
+
+@main_bp.route('/api/documentos/<int:id>/estado', methods=['PUT'])
+@login_required
+def cambiar_estado_documento(id):
+    try:
+        documento = Documento.query.get_or_404(id)
+        data = request.get_json()
+        nuevo_estado = data.get('estado')
+        
+        if nuevo_estado not in ['generado', 'firmado', 'cancelado']:
+            return jsonify({'success': False, 'error': 'Estado no válido'}), 400
+        
+        documento.estado = nuevo_estado
+        db.session.commit()
+        
+        # Crear notificación
+        mensaje = f'Documento #{documento.id} cambió a estado {nuevo_estado}'
+        crear_notificacion(
+            usuario_id=current_user.id,
+            tipo='documento',
+            mensaje=mensaje,
+            referencia_id=documento.id
+        )
+        
+        return jsonify({
+            'success': True,
+            'estado': documento.estado,
+            'estado_color': documento.estado_color
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @main_bp.route('/usuarios')

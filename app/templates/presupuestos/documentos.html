@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+
+{% block menuPresupuestos %}active{% endblock %}
+{% block menuPresupuestosSubtwo %}active{% endblock %}
+
+{% block PageName %}
+<h1>Gestión de Documentos</h1>
+{% endblock %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Filtros -->
+        <div class="col-12 mb-4">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <input type="text" class="form-control" id="searchCliente" placeholder="Buscar por cliente...">
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filterMes">
+                                <option value="">Todos los meses</option>
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <!-- ... otros meses ... -->
+                                <option value="12">Diciembre</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <select class="form-select" id="filterYear">
+                                <option value="">Todos los años</option>
+                                {% for year in range(2024, 2020, -1) %}
+                                <option value="{{ year }}">{{ year }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" onclick="aplicarFiltros()">
+                                <i class="bx bx-filter-alt"></i> Aplicar Filtros
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lista de documentos -->
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Reparación #</th>
+                                    <th>Total</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="documentsList">
+                                {% for doc in documentos %}
+                                <tr>
+                                    <td>{{ doc.fecha_creacion.strftime('%d/%m/%Y %H:%M') }}</td>
+                                    <td>{{ doc.reparacion.cliente }}</td>
+                                    <td>#{{ doc.reparacion_id }}</td>
+                                    <td>${{ "%.2f"|format(doc.total) }}</td>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button class="badge bg-{{ doc.estado_color }} dropdown-toggle border-0" 
+                                                    type="button" 
+                                                    data-bs-toggle="dropdown" 
+                                                    aria-expanded="false">
+                                                {{ doc.estado }}
+                                            </button>
+                                            <ul class="dropdown-menu">
+                                                <li><a class="dropdown-item" href="#" 
+                                                       onclick="cambiarEstado('{{ doc.id }}', 'generado')">Generado</a></li>
+                                                <li><a class="dropdown-item" href="#" 
+                                                       onclick="cambiarEstado('{{ doc.id }}', 'firmado')">Firmado</a></li>
+                                                <li><a class="dropdown-item" href="#" 
+                                                       onclick="cambiarEstado('{{ doc.id }}', 'cancelado')">Cancelado</a></li>
+                                            </ul>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ doc.pdf_url }}" target="_blank" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="bx bx-show"></i>
+                                            </a>
+                                            <a href="{{ url_for('main.descargar_pdf', filename=doc.filename) }}" 
+                                               class="btn btn-sm btn-outline-success">
+                                                <i class="bx bx-download"></i>
+                                            </a>
+                                            <button onclick="eliminarDocumento('{{ doc.id }}')" 
+                                                    class="btn btn-sm btn-outline-danger">
+                                                <i class="bx bx-trash"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+function aplicarFiltros() {
+    const cliente = document.getElementById('searchCliente').value;
+    const mes = document.getElementById('filterMes').value;
+    const year = document.getElementById('filterYear').value;
+    
+    fetch(`/api/documentos?cliente=${cliente}&mes=${mes}&year=${year}`)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('documentsList');
+            tbody.innerHTML = '';
+            
+            data.forEach(doc => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${doc.fecha}</td>
+                        <td>${doc.cliente}</td>
+                        <td>#${doc.reparacion_id}</td>
+                        <td>$${doc.total.toFixed(2)}</td>
+                        <td>
+                            <span class="badge bg-${doc.estado_color}">
+                                ${doc.estado}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="${doc.pdf_url}" target="_blank" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bx bx-show"></i>
+                                </a>
+                                <a href="/descargar-pdf/${doc.filename}" 
+                                   class="btn btn-sm btn-outline-success">
+                                    <i class="bx bx-download"></i>
+                                </a>
+                                <button onclick="eliminarDocumento('${doc.id}')" 
+                                        class="btn btn-sm btn-outline-danger">
+                                    <i class="bx bx-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+}
+
+function eliminarDocumento(id) {
+    if (confirm('¿Estás seguro de que deseas eliminar este documento?')) {
+        fetch(`/api/documentos/${id}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                aplicarFiltros(); // Recargar la lista
+                alert('Documento eliminado correctamente');
+            } else {
+                alert('Error al eliminar el documento');
+            }
+        });
+    }
+}
+
+function cambiarEstado(id, estado) {
+    fetch(`/api/documentos/${id}/estado`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ estado: estado })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            aplicarFiltros(); // Recargar la lista
+        } else {
+            alert('Error al cambiar el estado del documento');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al cambiar el estado del documento');
+    });
+}
+
+// Modificar la función que actualiza la tabla
+function aplicarFiltros() {
+    const cliente = document.getElementById('searchCliente').value;
+    const mes = document.getElementById('filterMes').value;
+    const year = document.getElementById('filterYear').value;
+    
+    fetch(`/api/documentos?cliente=${cliente}&mes=${mes}&year=${year}`)
+        .then(response => response.json())
+        .then(data => {
+            const tbody = document.getElementById('documentsList');
+            tbody.innerHTML = '';
+            
+            data.forEach(doc => {
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${doc.fecha}</td>
+                        <td>${doc.cliente}</td>
+                        <td>#${doc.reparacion_id}</td>
+                        <td>$${doc.total.toFixed(2)}</td>
+                        <td>
+                            <div class="dropdown">
+                                <button class="badge bg-${doc.estado_color} dropdown-toggle border-0" 
+                                        type="button" 
+                                        data-bs-toggle="dropdown" 
+                                        aria-expanded="false">
+                                    ${doc.estado}
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="cambiarEstado('${doc.id}', 'generado')">Generado</a></li>
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="cambiarEstado('${doc.id}', 'firmado')">Firmado</a></li>
+                                    <li><a class="dropdown-item" href="#" 
+                                           onclick="cambiarEstado('${doc.id}', 'cancelado')">Cancelado</a></li>
+                                </ul>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="${doc.pdf_url}" target="_blank" 
+                                   class="btn btn-sm btn-outline-primary">
+                                    <i class="bx bx-show"></i>
+                                </a>
+                                <a href="/descargar-pdf/${doc.filename}" 
+                                   class="btn btn-sm btn-outline-success">
+                                    <i class="bx bx-download"></i>
+                                </a>
+                                <button onclick="eliminarDocumento('${doc.id}')" 
+                                        class="btn btn-sm btn-outline-danger">
+                                    <i class="bx bx-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        });
+}
+</script>
+{% endblock %}

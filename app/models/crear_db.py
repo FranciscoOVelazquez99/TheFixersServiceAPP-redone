@@ -98,6 +98,17 @@ def crear_base_datos():
                         referencia_id INT,
                         FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
                     )
+                """,
+                'documentos': """
+                    CREATE TABLE IF NOT EXISTS documentos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        reparacion_id INT,
+                        filename VARCHAR(255) NOT NULL,
+                        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        total DECIMAL(10, 2),
+                        estado VARCHAR(50) DEFAULT 'generado',
+                        FOREIGN KEY (reparacion_id) REFERENCES reparaciones(id)
+                    )
                 """ 
             }
             

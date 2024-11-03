@@ -117,6 +117,32 @@ class Notificacion(db.Model):
     # Relación con el usuario
     usuario = db.relationship('Usuario', backref=db.backref('notificaciones', lazy=True))
 
+class Documento(db.Model):
+    __tablename__ = 'documentos'
+    
+    id = Column(Integer, primary_key=True)
+    reparacion_id = Column(Integer, ForeignKey('reparaciones.id'))
+    filename = Column(String(255), nullable=False)
+    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    total = Column(DECIMAL(10, 2))
+    estado = Column(String(50), default='generado')  # generado, firmado, cancelado
+    
+    # Relaciones
+    reparacion = relationship('Reparacion', backref='documentos')
+    
+    @property
+    def estado_color(self):
+        colores = {
+            'generado': 'warning',
+            'firmado': 'success',
+            'cancelado': 'danger'
+        }
+        return colores.get(self.estado.lower(), 'secondary')
+    
+    @property
+    def pdf_url(self):
+        return f'/static/pdfs/{self.filename}'
+
 
 
 # Crear una sesión
