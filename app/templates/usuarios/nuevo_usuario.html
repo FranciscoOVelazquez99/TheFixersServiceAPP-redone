@@ -11,7 +11,7 @@
     
 
 {% block body %}
-<div class="card">
+<div class="card" style="max-width: max-content;">
     <div class="card-body">
         <form method="POST" action="{{ url_for('main.register') }}" enctype="multipart/form-data">
             {{ form.csrf_token }}
