@@ -10,6 +10,11 @@ from flask_login import login_required, logout_user, LoginManager, current_user,
 from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, db
 from flask_bcrypt import Bcrypt
 
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
 import os
 from werkzeug.utils import secure_filename
 
@@ -871,6 +876,230 @@ def marcar_notificacion_leida(id):
 @login_required
 def notificaciones():
     return render_template('notificaciones/notificaciones.html')
+
+
+@main_bp.route('/generar_pdf_presupuesto/<int:reparacion_id>', methods=['POST'])
+@login_required
+def generar_pdf_presupuesto(reparacion_id):
+    try:
+        reparacion = Reparacion.query.get_or_404(reparacion_id)
+        
+        # Obtener datos del formulario
+        marca_modelo = request.form.get('marca_modelo', '')
+        numero_serie = request.form.get('numero_serie', '')
+        descripcion_problema = request.form.get('descripcion_problema', '')
+        impuestos = float(request.form.get('impuestos', 21))
+        tiempo_estimado = request.form.get('tiempo_estimado', '')
+        garantia = request.form.get('garantia', '')
+        terminos_pago = request.form.get('terminos_pago', '')
+        validez = request.form.get('validez', '')
+        
+        # Obtener presupuestos seleccionados
+        presupuestos_ids = request.form.getlist('presupuestos[]')
+        presupuestos = Presupuesto.query.filter(Presupuesto.id.in_(presupuestos_ids)).all()
+        
+        # Crear PDF
+        pdf_filename = f'presupuesto_{reparacion.id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+        pdf_path = os.path.join('app', 'static', 'pdfs', pdf_filename)
+        
+        # Asegurarse de que el directorio existe
+        os.makedirs(os.path.dirname(pdf_path), exist_ok=True)
+        
+        # Crear el documento con márgenes personalizados
+        doc = SimpleDocTemplate(
+            pdf_path,
+            pagesize=letter,
+            rightMargin=50,
+            leftMargin=50,
+            topMargin=50,
+            bottomMargin=50
+        )
+        
+        elements = []
+        styles = getSampleStyleSheet()
+        
+        # Estilos personalizados
+        styles.add(ParagraphStyle(
+            name='CustomTitle',
+            parent=styles['Title'],
+            fontSize=24,
+            spaceAfter=30,
+            textColor=colors.HexColor('#1a237e'),  # Azul oscuro
+            alignment=1  # Centrado
+        ))
+        
+        styles.add(ParagraphStyle(
+            name='CustomHeading',
+            parent=styles['Heading2'],
+            fontSize=14,
+            textColor=colors.HexColor('#1565c0'),  # Azul medio
+            spaceBefore=15,
+            spaceAfter=10
+        ))
+        
+        styles.add(ParagraphStyle(
+            name='CustomNormal',
+            parent=styles['Normal'],
+            fontSize=11,
+            leading=16
+        ))
+        
+        # Encabezado con logo y título
+        header_data = [
+            [Image('app/static/img/FixLogo.png', width=1.5*inch, height=1.2*inch),
+             Paragraph("Presupuesto de Servicio Técnico", styles['CustomTitle'])]
+        ]
+        header_table = Table(header_data, colWidths=[2*inch, 4*inch])
+        header_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 20))
+        
+        # Información del presupuesto
+        elements.append(Paragraph(f"Presupuesto #{reparacion.id}", styles['CustomHeading']))
+        elements.append(Paragraph(f"Fecha: {datetime.now().strftime('%d/%m/%Y')}", styles['CustomNormal']))
+        elements.append(Spacer(1, 20))
+        
+        # Información del cliente en tabla
+        cliente_data = [
+            ['INFORMACIÓN DEL CLIENTE', ''],
+            ['Cliente:', reparacion.cliente],
+            ['Teléfono:', reparacion.telefono],
+            ['Email:', reparacion.email]
+        ]
+        cliente_table = Table(cliente_data, colWidths=[100, 400])
+        cliente_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#e3f2fd')),  # Azul muy claro
+            ('TEXTCOLOR', (0, 0), (1, 0), colors.HexColor('#1565c0')),
+            ('SPAN', (0, 0), (1, 0)),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(cliente_table)
+        elements.append(Spacer(1, 20))
+        
+        # Información del equipo en tabla
+        equipo_data = [
+            ['DETALLES DEL EQUIPO', ''],
+            ['Marca/Modelo:', marca_modelo if marca_modelo else 'No especificado'],
+            ['Número de Serie:', numero_serie if numero_serie else 'No especificado'],
+            ['Descripción:', descripcion_problema]
+        ]
+        equipo_table = Table(equipo_data, colWidths=[100, 400])
+        equipo_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (1, 0), colors.HexColor('#e3f2fd')),
+            ('TEXTCOLOR', (0, 0), (1, 0), colors.HexColor('#1565c0')),
+            ('SPAN', (0, 0), (1, 0)),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(equipo_table)
+        elements.append(Spacer(1, 20))
+        
+        # Tabla de presupuestos
+        elements.append(Paragraph("DETALLE DE SERVICIOS", styles['CustomHeading']))
+        data = [['Servicio', 'Unidades', 'Precio Unit.', 'Total']]
+        subtotal = 0
+        for p in presupuestos:
+            data.append([
+                p.tipo_reparacion,
+                str(p.unidades),
+                f"${p.precio_unitario:.2f}",
+                f"${p.total:.2f}"
+            ])
+            subtotal += float(p.total)
+            
+        # Calcular totales
+        impuesto = subtotal * (impuestos/100)
+        total = subtotal + impuesto
+        
+        # Agregar totales
+        data.extend([
+            ['', '', 'Subtotal:', f"${subtotal:.2f}"],
+            ['', '', f'IVA ({impuestos}%):', f"${impuesto:.2f}"],
+            ['', '', 'TOTAL:', f"${total:.2f}"]
+        ])
+        
+        # Crear y estilizar la tabla
+        table = Table(data, colWidths=[250, 75, 100, 75])
+        table.setStyle(TableStyle([
+            # Encabezado
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#1565c0')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            # Contenido
+            ('ALIGN', (1, 1), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -4), 1, colors.grey),
+            # Totales
+            ('SPAN', (0, -3), (2, -3)),
+            ('SPAN', (0, -2), (2, -2)),
+            ('SPAN', (0, -1), (2, -1)),
+            ('ALIGN', (-2, -3), (-1, -1), 'RIGHT'),
+            ('FONTNAME', (-2, -3), (-1, -1), 'Helvetica-Bold'),
+            ('BACKGROUND', (0, -1), (-1, -1), colors.HexColor('#e3f2fd')),
+            ('LINEABOVE', (-2, -3), (-1, -3), 1, colors.black),
+        ]))
+        elements.append(table)
+        elements.append(Spacer(1, 30))
+        
+        # Términos y condiciones en tabla
+        elements.append(Paragraph("TÉRMINOS Y CONDICIONES", styles['CustomHeading']))
+        terminos_data = [
+            ['Tiempo Estimado:', tiempo_estimado],
+            ['Garantía:', garantia],
+            ['Términos de Pago:', terminos_pago],
+            ['Validez:', validez]
+        ]
+        terminos_table = Table(terminos_data, colWidths=[150, 350])
+        terminos_table.setStyle(TableStyle([
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+            ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e3f2fd')),
+            ('PADDING', (0, 0), (-1, -1), 6),
+        ]))
+        elements.append(terminos_table)
+        elements.append(Spacer(1, 40))
+        
+        # Firmas
+        firma_data = [
+            ['_'*30, '_'*30],
+            ['Cliente', 'Técnico'],
+            [reparacion.cliente, reparacion.tecnico if reparacion.tecnico else 'No asignado']
+        ]
+        firma_table = Table(firma_data, colWidths=[250, 250])
+        firma_table.setStyle(TableStyle([
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 1), (-1, 1), 'Helvetica-Bold'),
+            ('TOPPADDING', (0, 1), (-1, 1), 20),
+        ]))
+        elements.append(firma_table)
+        
+        # Generar PDF
+        doc.build(elements)
+        
+        # Devolver la URL del PDF generado
+        pdf_url = url_for('static', filename=f'pdfs/{pdf_filename}')
+        return jsonify({'success': True, 'pdf_url': pdf_url})
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 
 
 @main_bp.route('/usuarios')

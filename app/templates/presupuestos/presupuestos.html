@@ -81,6 +81,91 @@
         </div>
     </div>
 </div>
+
+
+<!-- Sidebar para Generar PDF -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="pdfSidebar" aria-labelledby="pdfSidebarLabel">
+    <div class="offcanvas-header">
+        <h5 class="offcanvas-title" id="pdfSidebarLabel">Generar PDF Presupuesto</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+    </div>
+    <div class="offcanvas-body">
+        <form id="pdfForm" action="{{ url_for('main.generar_pdf_presupuesto', reparacion_id=reparacion.id) }}" method="POST">
+            <!-- Datos del Equipo -->
+            <div class="mb-3">
+                <h6>Datos del Equipo</h6>
+                <div class="mb-2">
+                    <label class="form-label">Marca y Modelo</label>
+                    <input type="text" class="form-control" name="marca_modelo">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Número de Serie</label>
+                    <input type="text" class="form-control" name="numero_serie">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Descripción del Problema</label>
+                    <textarea class="form-control" name="descripcion_problema" rows="3">{{ reparacion.descripcion }}</textarea>
+                </div>
+            </div>
+
+            <!-- Presupuestos a Incluir -->
+            <div class="mb-3">
+                <h6>Presupuestos a Incluir</h6>
+                <div class="list-group" id="presupuestosList">
+                    {% for presupuesto in reparacion.presupuestos %}
+                    <div class="list-group-item">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="presupuestos[]" 
+                                   value="{{ presupuesto.id }}" 
+                                   {% if presupuesto.aprobado %}checked{% endif %}>
+                            <label class="form-check-label">
+                                {{ presupuesto.tipo_reparacion }} - ${{ "%.2f"|format(presupuesto.total) }}
+                            </label>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Detalles Adicionales -->
+            <div class="mb-3">
+                <h6>Detalles Adicionales</h6>
+                <div class="mb-2">
+                    <label class="form-label">Impuestos (%)</label>
+                    <input type="number" class="form-control" name="impuestos" value="21" min="0" max="100">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Tiempo Estimado</label>
+                    <input type="text" class="form-control" name="tiempo_estimado" placeholder="Ej: 5-7 días hábiles">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Garantía</label>
+                    <input type="text" class="form-control" name="garantia" placeholder="Ej: 90 días">
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Términos de Pago</label>
+                    <textarea class="form-control" name="terminos_pago" rows="2">50% al aprobar el presupuesto, 50% al retirar el equipo</textarea>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label">Validez del Presupuesto</label>
+                    <input type="text" class="form-control" name="validez" value="15 días">
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bx bx-file"></i> Generar PDF
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Agregar botón para abrir el sidebar -->
+<div class="position-fixed bottom-0 end-0 mb-4 me-4">
+    <button class="btn btn-primary rounded-circle p-3" data-bs-toggle="offcanvas" data-bs-target="#pdfSidebar">
+        <i class="bx bx-file"></i>
+    </button>
+</div>
+
 {% endblock %}
 
 {% block modals %}
@@ -215,5 +300,29 @@ function eliminarPresupuesto(id) {
         });
     }
 }
+
+document.getElementById('pdfForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    fetch(this.action, {
+        method: 'POST',
+        body: new FormData(this)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Abrir el PDF en una nueva pestaña
+            window.open(data.pdf_url, '_blank');
+        } else {
+            alert('Error al generar el PDF: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Error al generar el PDF');
+    });
+});
+
+
 </script>
 {% endblock %}
