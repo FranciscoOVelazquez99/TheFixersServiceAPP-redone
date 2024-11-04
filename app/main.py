@@ -6,8 +6,8 @@ from wtforms import StringField, PasswordField, SelectField , SubmitField
 from wtforms.validators import DataRequired
 
 from flask_login import login_required, logout_user, LoginManager, current_user, login_user
-
-from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, Documento, db
+from sqlalchemy import extract
+from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, Documento,Nota, db
 from flask_bcrypt import Bcrypt
 
 from reportlab.lib import colors
@@ -146,7 +146,7 @@ def home():
 @login_required
 def get_estadisticas_reparaciones():
     try:
-        estados = ['Pendiente', 'En proceso', 'Completada', 'Cancelada']
+        estados = ['Pendiente', 'En proceso', 'Completado', 'Cancelado']
         datos = []
         for estado in estados:
             count = Reparacion.query.filter_by(estado=estado).count()
@@ -812,7 +812,8 @@ def obtener_tarea(id):
             'estado': tarea.estado,
             'prioridad': tarea.prioridad,
             'asignado_a_id': tarea.asignado_a_id,
-            'fecha_vencimiento': tarea.fecha_vencimiento.strftime('%Y-%m-%d') if tarea.fecha_vencimiento else None
+            'fecha_vencimiento': tarea.fecha_vencimiento.strftime('%Y-%m-%d') if tarea.fecha_vencimiento else None,
+            'creado_por': tarea.creado_por.usuario
         })
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -824,28 +825,42 @@ def actualizar_tarea(id):
         tarea = Tarea.query.get_or_404(id)
         form_data = request.form
 
+        # Guardar el ID del usuario anterior
+        usuario_anterior_id = tarea.asignado_a_id
+        nuevo_asignado_id = form_data.get('asignado_a_id')
+
         # Actualizar los campos de la tarea
         tarea.titulo = form_data.get('titulo', tarea.titulo)
         tarea.descripcion = form_data.get('descripcion', tarea.descripcion)
         tarea.prioridad = form_data.get('prioridad', tarea.prioridad)
-        tarea.asignado_a_id = form_data.get('asignado_a_id', tarea.asignado_a_id)
-        
+
+        # Manejar cambio de asignación
+        if nuevo_asignado_id and str(usuario_anterior_id) != str(nuevo_asignado_id):
+            tarea.asignado_a_id = nuevo_asignado_id
+            
+            # Notificar al nuevo usuario asignado
+            crear_notificacion(
+                usuario_id=nuevo_asignado_id,
+                tipo='tarea',
+                mensaje=f'Se te ha asignado la tarea: {tarea.titulo}',
+                referencia_id=tarea.id
+            )
+            
+            # Notificar al usuario anterior si existía
+            if usuario_anterior_id:
+                crear_notificacion(
+                    usuario_id=usuario_anterior_id,
+                    tipo='tarea',
+                    mensaje=f'La tarea "{tarea.titulo}" ha sido reasignada a otro usuario',
+                    referencia_id=tarea.id
+                )
+
         # Manejar la fecha de vencimiento
         if form_data.get('fecha_vencimiento'):
             try:
                 tarea.fecha_vencimiento = datetime.strptime(form_data['fecha_vencimiento'], '%Y-%m-%d')
             except ValueError:
                 return jsonify({'success': False, 'error': 'Formato de fecha inválido'}), 400
-
-
-        # Actualizar notificación
-        if tarea.asignado_a_id:
-            crear_notificacion(
-                usuario_id=tarea.asignado_a_id,
-                tipo='tarea',
-                mensaje=f'Se te ha asignado a la tarea: {tarea.titulo}',
-                referencia_id=tarea.id
-            )
 
         db.session.commit()
         return jsonify({'success': True})
@@ -898,6 +913,75 @@ def restaurar_tarea(id):
         tarea = Tarea.query.get_or_404(id)
         tarea.estado = 'pendiente'
         db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@main_bp.route('/mis-tareas')
+@login_required
+def mis_tareas():
+    return render_template('tareas/tareas.html')
+
+@main_bp.route('/api/mis-tareas')
+@login_required
+def get_mis_tareas():
+    try:
+        # Obtener filtros
+        estado = request.args.get('estado')
+        prioridad = request.args.get('prioridad')
+        
+        # Construir query base
+        query = Tarea.query.filter_by(asignado_a_id=current_user.id)
+        
+        # Aplicar filtros si existen
+        if estado:
+            query = query.filter_by(estado=estado)
+        if prioridad:
+            query = query.filter_by(prioridad=prioridad)
+            
+        # Obtener tareas
+        tareas = query.order_by(Tarea.fecha_creacion.desc()).all()
+        
+        return jsonify([{
+            'id': tarea.id,
+            'titulo': tarea.titulo,
+            'descripcion': tarea.descripcion,
+            'estado': tarea.estado,
+            'prioridad': tarea.prioridad,
+            'fecha_vencimiento': tarea.fecha_vencimiento.strftime('%Y-%m-%d') if tarea.fecha_vencimiento else None,
+            'creado_por': tarea.creado_por.usuario
+        } for tarea in tareas])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/tareas/<int:id>/actualizar-estado', methods=['PUT'])
+@login_required
+def actualizar_estado_tarea_modal(id):
+    try:
+        tarea = Tarea.query.get_or_404(id)
+        
+        # Verificar que la tarea está asignada al usuario actual
+        if tarea.asignado_a_id != current_user.id:
+            return jsonify({'success': False, 'error': 'No autorizado'}), 403
+            
+        data = request.get_json()
+        nuevo_estado = data.get('estado')
+        
+        if nuevo_estado not in ['pendiente', 'en_proceso', 'completada']:
+            return jsonify({'success': False, 'error': 'Estado no válido'}), 400
+            
+        tarea.estado = nuevo_estado
+        db.session.commit()
+        
+        # Crear notificación
+        crear_notificacion(
+            usuario_id=tarea.creado_por_id,
+            tipo='tarea',
+            mensaje=f'La tarea "{tarea.titulo}" ha sido actualizada a estado {nuevo_estado}',
+            referencia_id=tarea.id
+        )
+        
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
@@ -1280,6 +1364,150 @@ def cambiar_estado_documento(id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@main_bp.route('/api/reparaciones', methods=['GET'])
+@login_required
+def get_reparaciones():
+    try:
+        # Obtener solo reparaciones activas (no finalizadas)
+        reparaciones = Reparacion.query.filter(
+            Reparacion.estado != 'Finalizado'
+        ).order_by(Reparacion.fecha_ingreso.desc()).all()
+        
+        return jsonify([{
+            'id': rep.id,
+            'cliente': rep.cliente,
+            'descripcion': rep.descripcion or 'Sin descripción'
+        } for rep in reparaciones])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/notas', methods=['GET'])
+@login_required
+def get_notas():
+    try:
+        notas = Nota.query.filter_by(usuario_id=current_user.id).order_by(Nota.fecha_creacion.desc()).all()
+        notas_list = []
+        for nota in notas:
+            nota_dict = {
+                'id': nota.id,
+                'contenido': nota.contenido,
+                'fecha': nota.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+                'color': nota.color,
+                'es_personal': nota.es_personal,
+                'reparacion_id': nota.reparacion_id,
+                'reparacion_cliente': nota.reparacion.cliente if nota.reparacion else None
+            }
+            notas_list.append(nota_dict)
+        return jsonify(notas_list)
+    except Exception as e:
+        print(f"Error en get_notas: {str(e)}")  # Para debugging
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/notas', methods=['POST'])
+@login_required
+def crear_nota():
+    try:
+        data = request.get_json()
+        if not data or 'contenido' not in data:
+            return jsonify({'error': 'Contenido requerido'}), 400
+
+        nueva_nota = Nota(
+            usuario_id=current_user.id,
+            contenido=data['contenido'],
+            color=data.get('color', '#ffffff'),
+            es_personal=data.get('es_personal', True)
+        )
+        
+        if not data.get('es_personal') and data.get('reparacion_id'):
+            nueva_nota.reparacion_id = data['reparacion_id']
+        
+        db.session.add(nueva_nota)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'nota': {
+                'id': nueva_nota.id,
+                'contenido': nueva_nota.contenido,
+                'fecha': nueva_nota.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+                'color': nueva_nota.color,
+                'es_personal': nueva_nota.es_personal,
+                'reparacion_id': nueva_nota.reparacion_id,
+                'reparacion_cliente': nueva_nota.reparacion.cliente if nueva_nota.reparacion else None
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error en crear_nota: {str(e)}")  # Para debugging
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/notas/<int:id>', methods=['DELETE'])
+@login_required
+def eliminar_nota(id):
+    try:
+        nota = Nota.query.get_or_404(id)
+        if nota.usuario_id != current_user.id:
+            return jsonify({'error': 'No autorizado'}), 403
+            
+        db.session.delete(nota)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error en eliminar_nota: {str(e)}")  # Para debugging
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/notas/<int:id>', methods=['PUT'])
+@login_required
+def actualizar_nota(id):
+    try:
+        nota = Nota.query.get_or_404(id)
+        if nota.usuario_id != current_user.id:
+            return jsonify({'error': 'No autorizado'}), 403
+            
+        data = request.get_json()
+        nota.contenido = data.get('contenido', nota.contenido)
+        nota.color = data.get('color', nota.color)
+        nota.es_personal = data.get('es_personal', nota.es_personal)
+        nota.reparacion_id = data.get('reparacion_id', nota.reparacion_id)
+        
+        db.session.commit()
+        return jsonify({
+            'success': True,
+            'nota': {
+                'id': nota.id,
+                'contenido': nota.contenido,
+                'fecha': nota.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+                'color': nota.color,
+                'es_personal': nota.es_personal,
+                'reparacion_id': nota.reparacion_id,
+                'reparacion_cliente': nota.reparacion.cliente if nota.reparacion else None
+            }
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/notas/reparacion/<int:reparacion_id>', methods=['GET'])
+@login_required
+def get_notas_reparacion(reparacion_id):
+    try:
+        notas = Nota.query.filter_by(
+            reparacion_id=reparacion_id,
+            es_personal=False
+        ).order_by(Nota.fecha_creacion.desc()).all()
+        
+        return jsonify([{
+            'id': nota.id,
+            'contenido': nota.contenido,
+            'fecha': nota.fecha_creacion.strftime('%Y-%m-%d %H:%M'),
+            'color': nota.color,
+            'usuario': nota.usuario.usuario  # Agregar el usuario que creó la nota
+        } for nota in notas])
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @main_bp.route('/usuarios')

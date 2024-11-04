@@ -149,6 +149,21 @@ class Documento(db.Model):
     def pdf_url(self):
         return f'/static/pdfs/{self.filename}'
 
+class Nota(db.Model):
+    __tablename__ = 'notas'
+    
+    id = Column(Integer, primary_key=True)
+    usuario_id = Column(Integer, ForeignKey('usuarios.id'), nullable=False)
+    reparacion_id = Column(Integer, ForeignKey('reparaciones.id'), nullable=True)
+    contenido = Column(Text, nullable=False)
+    fecha_creacion = Column(DateTime, default=datetime.utcnow)
+    color = Column(String(7), default='#ffffff')  # Para el color de fondo de la nota
+    es_personal = Column(Boolean, default=True)
+    
+    # Relaciones
+    usuario = relationship('Usuario', backref='notas')
+    reparacion = relationship('Reparacion', backref='notas')
+
 
 
 # Crear una sesión

@@ -1,0 +1,313 @@
+{% extends "base.html" %}
+
+{% block PageName %}<h1>Mis Tareas</h1>{% endblock %}
+
+{% block menuTareasSubAsignadas %}menu active{% endblock %}
+
+{% block body %}
+
+    <!-- Filtros -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <select class="form-select" id="filtroEstado">
+                <option value="">Todos los estados</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="en_proceso">En Proceso</option>
+                <option value="completada">Completada</option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select" id="filtroPrioridad">
+                <option value="">Todas las prioridades</option>
+                <option value="alta">Alta</option>
+                <option value="media">Media</option>
+                <option value="baja">Baja</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Lista de Tareas -->
+    <div class="row">
+        <div class="col">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Título</th>
+                            <th>Descripción</th>
+                            <th>Estado</th>
+                            <th>Prioridad</th>
+                            <th>Fecha Vencimiento</th>
+                            <th>Creado por</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablaTareas">
+                        <!-- Las tareas se cargarán dinámicamente aquí -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<!-- Modal para ver detalles de la tarea -->
+<div class="modal fade" id="modalTarea" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalles de la Tarea</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="modalTitulo" class="form-label">Título</label>
+                    <input type="text" class="form-control" id="modalTitulo" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="modalDescripcion" class="form-label">Descripción</label>
+                    <textarea class="form-control" id="modalDescripcion" readonly rows="3"></textarea>
+                </div>
+                <div class="mb-3">
+                    <p class="form-label">Estado</p>
+                    <div class="d-flex gap-2" id="botonesEstado">
+                        <button type="button" class="btn btn-outline-warning flex-grow-1" 
+                                data-estado="pendiente" onclick="seleccionarEstado(this)">
+                            Pendiente
+                        </button>
+                        <button type="button" class="btn btn-outline-primary flex-grow-1" 
+                                data-estado="en_proceso" onclick="seleccionarEstado(this)">
+                            En Proceso
+                        </button>
+                        <button type="button" class="btn btn-outline-success flex-grow-1" 
+                                data-estado="completada" onclick="seleccionarEstado(this)">
+                            Completada
+                        </button>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="modalPrioridad" class="form-label">Prioridad</label>
+                    <input type="text" class="form-control" id="modalPrioridad" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="modalFechaVencimiento" class="form-label">Fecha de Vencimiento</label>
+                    <input type="date" class="form-control" id="modalFechaVencimiento" readonly>
+                </div>
+                <div class="mb-3">
+                    <label for="modalCreadoPor" class="form-label">Creado por</label>
+                    <input type="text" class="form-control" id="modalCreadoPor" readonly>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-primary" id="btnGuardarEstado">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block script %}
+<script>
+let tareaActual = null;
+let modalTarea = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    modalTarea = new bootstrap.Modal(document.getElementById('modalTarea'));
+    cargarTareas();
+});
+
+function cargarTareas(filtros = {}) {
+    fetch(`/api/mis-tareas?${new URLSearchParams(filtros)}`)
+        .then(response => response.json())
+        .then(tareas => {
+            const tbody = document.getElementById('tablaTareas');
+            tbody.innerHTML = '';
+            
+            tareas.forEach(tarea => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${tarea.titulo}</td>
+                    <td>${tarea.descripcion}</td>
+                    <td><span class="badge bg-${getEstadoColor(tarea.estado)}">${corregirTexto(tarea.estado)}</span></td>
+                    <td><span class="badge bg-${getPrioridadColor(tarea.prioridad)}">${tarea.prioridad}</span></td>
+                    <td>${tarea.fecha_vencimiento || 'No definida'}</td>
+                    <td>${tarea.creado_por}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="verTareaById(${tarea.id})">
+                            <i class="bi bi-eye"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('Error al cargar las tareas', 'danger');
+        });
+}
+
+function getEstadoColor(estado) {
+    const colores = {
+        'pendiente': 'warning',
+        'en_proceso': 'primary',
+        'completada': 'success'
+    };
+    return colores[estado] || 'secondary';
+}
+
+function getPrioridadColor(prioridad) {
+    const colores = {
+        'alta': 'danger',
+        'media': 'warning',
+        'baja': 'info'
+    };
+    return colores[prioridad] || 'secondary';
+}
+
+function corregirTexto(texto) {
+    const textos = {
+        'pendiente': 'Pendiente',
+        'en_proceso': 'En Proceso',
+        'completada': 'Completada'
+    };
+    return textos[texto] || texto;
+}
+
+function verTareaById(id) {
+    fetch(`/api/tareas/${id}`)
+        .then(response => response.json())
+        .then(tarea => {
+            mostrarModalTarea(tarea);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            mostrarNotificacion('Error al cargar los detalles de la tarea', 'danger');
+        });
+}
+
+function seleccionarEstado(boton) {
+    // Remover clase activa de todos los botones
+    document.querySelectorAll('#botonesEstado button').forEach(btn => {
+        const estado = btn.dataset.estado;
+        btn.className = `btn btn-outline-${getEstadoColor(estado)} flex-grow-1`;
+    });
+    
+    // Agregar clase activa al botón seleccionado
+    const estado = boton.dataset.estado;
+    boton.className = `btn btn-${getEstadoColor(estado)} flex-grow-1`;
+}
+
+
+
+function mostrarModalTarea(tarea) {
+    tareaActual = tarea;
+    
+    // Llenar los campos del modal
+    document.getElementById('modalTitulo').value = tarea.titulo;
+    document.getElementById('modalDescripcion').value = tarea.descripcion;
+    document.getElementById('modalPrioridad').value = tarea.prioridad;
+    document.getElementById('modalFechaVencimiento').value = tarea.fecha_vencimiento || '';
+    document.getElementById('modalCreadoPor').value = tarea.creado_por;
+    
+    // Establecer el estado inicial
+    document.querySelectorAll('#botonesEstado button').forEach(btn => {
+        const estado = btn.dataset.estado;
+        if (estado === tarea.estado) {
+            btn.className = `btn btn-${getEstadoColor(estado)} flex-grow-1`;
+        } else {
+            btn.className = `btn btn-outline-${getEstadoColor(estado)} flex-grow-1`;
+        }
+    });
+    
+    // Mostrar el modal
+    modalTarea.show();
+}
+
+document.getElementById('btnGuardarEstado').addEventListener('click', function() {
+    if (!tareaActual) return;
+    
+    const botonActivo = document.querySelector('#botonesEstado button.btn:not(.btn-outline-warning):not(.btn-outline-primary):not(.btn-outline-success)');
+    if (!botonActivo) return;
+    
+    const nuevoEstado = botonActivo.dataset.estado;
+    
+    fetch(`/api/tareas/${tareaActual.id}/actualizar-estado`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ estado: nuevoEstado })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            modalTarea.hide();
+            cargarTareas();
+            mostrarNotificacion('Estado actualizado correctamente', 'success');
+        } else {
+            mostrarNotificacion(data.error || 'Error al actualizar el estado', 'danger');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        mostrarNotificacion('Error al actualizar el estado', 'danger');
+    });
+});
+
+// Eventos para filtros
+document.getElementById('filtroEstado').addEventListener('change', aplicarFiltros);
+document.getElementById('filtroPrioridad').addEventListener('change', aplicarFiltros);
+
+function aplicarFiltros() {
+    const filtros = {
+        estado: document.getElementById('filtroEstado').value,
+        prioridad: document.getElementById('filtroPrioridad').value
+    };
+    cargarTareas(filtros);
+}
+
+function mostrarNotificacion(mensaje, tipo) {
+    // Crear el toast
+    const toastHTML = `
+        <div class="toast align-items-center text-white bg-${tipo} border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${mensaje}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    `;
+    
+    // Crear contenedor si no existe
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Agregar el toast al contenedor
+    toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+    
+    // Inicializar y mostrar el toast
+    const toastElement = toastContainer.lastElementChild;
+    const toast = new bootstrap.Toast(toastElement, {
+        autohide: true,
+        delay: 3000
+    });
+    toast.show();
+    
+    // Remover el toast después de ocultarse
+    toastElement.addEventListener('hidden.bs.toast', () => {
+        toastElement.remove();
+    });
+}
+</script>
+
+{% endblock %}

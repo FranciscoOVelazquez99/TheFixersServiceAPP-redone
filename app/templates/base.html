@@ -71,11 +71,8 @@
                     <a href="{{ url_for('main.tablero') }}">
                         <span class="menu {% block menuTareasSubTablero %} {% endblock %}">Tablero</span>
                     </a>
-                    <a href="#">
+                    <a href="{{ url_for('main.mis_tareas') }}">
                         <span class="menu {% block menuTareasSubAsignadas %} {% endblock %}">Asignadas</span>
-                    </a>
-                    <a href="#">
-                        <span class="menu {% block menuTareasSubCompletadas %} {% endblock %}">Completadas</span>
                     </a>
                 </div>
             </div>
@@ -176,6 +173,66 @@
 
         {% endblock %}
     </div>
+
+    <button class="notas-toggle" onclick="toggleNotas()">
+        <i class='bx bx-note'></i>
+    </button>
+    
+    <div class="notas-drawer" id="notasDrawer">
+        <div class="notas-header">
+            <h5>Mis Notas</h5>
+            <div>
+                <button class="btn btn-primary" onclick="mostrarModalNuevaNota()">
+                    <i class='bx bx-plus'></i> Nueva Nota
+                </button>
+                <button class="btn btn-outline-secondary" onclick="toggleNotas()">
+                    <i class='bx bx-x'></i>
+                </button>
+            </div>
+        </div>
+        <div class="notas-container" id="notasContainer">
+            <!-- Las notas se cargarán aquí -->
+        </div>
+    </div>
+    
+    <!-- Modal para nueva nota -->
+    <div class="modal fade" id="nuevaNotaModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Nueva Nota</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Contenido</label>
+                        <textarea class="form-control" id="notaContenido" rows="4"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Color</label>
+                        <input type="color" class="form-control form-control-color" id="notaColor" value="#ffffff">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tipo</label>
+                        <select class="form-select" id="notaTipo">
+                            <option value="personal">Personal</option>
+                            <option value="reparacion">Vincular a Reparación</option>
+                        </select>
+                    </div>
+                    <div class="mb-3" id="reparacionSelect" style="display: none;">
+                        <label class="form-label">Reparación</label>
+                        <select class="form-select" id="notaReparacion"></select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="guardarNota()">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     
     {% block modals %}
 
@@ -280,7 +337,9 @@
         function irAReferencia(tipo, id) {
             const rutas = {
                 'reparacion': `/reparaciones#reparacion-${id}`,
-                'tarea': `/tablero#tarea-${id}`
+                'tarea': `/tablero#tarea-${id}`,
+                'presupuesto': `/presupuestos#presupuesto-${id}`,
+                'documento': `/documentos#documento-${id}`
             };
             
             if (rutas[tipo]) {
@@ -323,6 +382,187 @@
 
         // Verificación periódica (cada minuto)
         setInterval(verificarNotificacionesNoLeidas, 60000);
+
+
+
+        let notasModal;
+        let notaEnEdicion = null;
+        let reparaciones = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            notasModal = new bootstrap.Modal(document.getElementById('nuevaNotaModal'));
+            
+            // Cargar reparaciones al inicio
+            cargarReparaciones();
+        });
+
+        function toggleNotas() {
+            const drawer = document.getElementById('notasDrawer');
+            drawer.classList.toggle('show');
+            if (drawer.classList.contains('show')) {
+                cargarNotas();
+            }
+        }
+
+        function cargarNotas() {
+            fetch('/api/notas')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al cargar las notas');
+                    }
+                    return response.json();
+                })
+                .then(notas => {
+                    if (!Array.isArray(notas)) {
+                        console.error('Respuesta no válida:', notas);
+                        return;
+                    }
+                    
+                    const container = document.getElementById('notasContainer');
+                    container.innerHTML = '';
+                    
+                    notas.forEach(nota => {
+                        const notaHTML = `
+                            <div class="nota" style="background-color: ${nota.color}">
+                                <div class="nota-header">
+                                    <span class="nota-fecha">${nota.fecha}</span>
+                                    <div class="nota-acciones">
+                                        <button class="btn btn-sm btn-outline-primary" onclick="editarNota(${JSON.stringify(nota).replace(/"/g, '&quot;')})">
+                                            <i class='bx bx-edit'></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" onclick="eliminarNota(${nota.id})">
+                                            <i class='bx bx-trash'></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="nota-contenido">${nota.contenido}</div>
+                                <div class="nota-footer">
+                                    ${nota.reparacion_id ? 
+                                        `<span class="nota-reparacion" onclick="irAReparacion(${nota.reparacion_id})">
+                                            📎 ${nota.reparacion_cliente}
+                                        </span>` : 
+                                        '<span>Nota personal</span>'
+                                    }
+                                </div>
+                            </div>
+                        `;
+                        container.insertAdjacentHTML('beforeend', notaHTML);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+
+        function cargarReparaciones() {
+            fetch('/api/reparaciones')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al cargar las reparaciones');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!Array.isArray(data)) {
+                        console.error('Respuesta no válida:', data);
+                        return;
+                    }
+                        
+                    reparaciones = data;
+                    const select = document.getElementById('notaReparacion');
+                    select.innerHTML = reparaciones.map(r => 
+                        `<option value="${r.id}">${r.cliente} - ${r.descripcion}</option>`
+                    ).join('');
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                });
+        }
+        document.getElementById('notaTipo').addEventListener('change', function(e) {
+                document.getElementById('reparacionSelect').style.display = 
+                e.target.value === 'reparacion' ? 'block' : 'none';
+        });
+
+        function editarNota(nota) {
+            notaEnEdicion = nota;
+            document.getElementById('notaContenido').value = nota.contenido;
+            document.getElementById('notaColor').value = nota.color;
+            document.getElementById('notaTipo').value = nota.reparacion_id ? 'reparacion' : 'personal';
+            
+            const reparacionSelect = document.getElementById('reparacionSelect');
+            reparacionSelect.style.display = nota.reparacion_id ? 'block' : 'none';
+            
+            if (nota.reparacion_id) {
+                document.getElementById('notaReparacion').value = nota.reparacion_id;
+            }
+            
+            document.querySelector('.modal-title').textContent = 'Editar Nota';
+            notasModal.show();
+        }
+
+        function mostrarModalNuevaNota() {
+            notaEnEdicion = null;
+            document.getElementById('notaContenido').value = '';
+            document.getElementById('notaColor').value = '#ffffff';
+            document.getElementById('notaTipo').value = 'personal';
+            document.getElementById('reparacionSelect').style.display = 'none';
+            document.querySelector('.modal-title').textContent = 'Nueva Nota';
+            notasModal.show();
+        }
+
+        function guardarNota() {
+            const contenido = document.getElementById('notaContenido').value;
+            const color = document.getElementById('notaColor').value;
+            const tipo = document.getElementById('notaTipo').value;
+            const reparacionId = tipo === 'reparacion' ? 
+                document.getElementById('notaReparacion').value : null;
+            
+            const data = {
+                contenido,
+                color,
+                es_personal: tipo === 'personal',
+                reparacion_id: reparacionId
+            };
+            
+            const url = notaEnEdicion ? 
+                `/api/notas/${notaEnEdicion.id}` : 
+                '/api/notas';
+                
+            const method = notaEnEdicion ? 'PUT' : 'POST';
+            
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    notasModal.hide();
+                    cargarNotas();
+                }
+            });
+        }
+
+        function eliminarNota(id) {
+            if (confirm('¿Estás seguro de eliminar esta nota?')) {
+                fetch(`/api/notas/${id}`, {
+                    method: 'DELETE'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        cargarNotas();
+                    }
+                });
+            }
+        }
+
+        function irAReparacion(id) {
+            window.location.href = `/reparaciones#reparacion-${id}`;
+        }
 
 
     </script>

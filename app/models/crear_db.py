@@ -112,7 +112,20 @@ def crear_base_datos():
                         estado VARCHAR(50) DEFAULT 'generado',
                         FOREIGN KEY (reparacion_id) REFERENCES reparaciones(id)
                     )
-                """ 
+                """,
+                'notas': """
+                    CREATE TABLE IF NOT EXISTS notas (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT,
+                        reparacion_id INT,
+                        contenido TEXT NOT NULL,
+                        fecha_creacion DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        color VARCHAR(7) DEFAULT '#ffffff',
+                        es_personal BOOLEAN DEFAULT TRUE,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+                        FOREIGN KEY (reparacion_id) REFERENCES reparaciones(id)
+                    )
+                """  
             }
             
             # Crear cada tabla

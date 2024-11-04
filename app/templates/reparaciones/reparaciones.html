@@ -4,6 +4,25 @@
 
 {% block menuReparaciones %}menu active{% endblock %}
 
+
+{% block head %}
+<style>
+#notasReparacionContainer .nota {
+    width: calc(50% - 1rem);  /* 2 notas por fila */
+    min-width: 250px;
+}
+
+#sinNotas {
+    color: #6c757d;
+}
+
+#sinNotas i {
+    font-size: 3rem;
+    opacity: 0.5;
+}
+</style>
+{% endblock %}
+
 {% block body %}
 <div class="container-fluid">
     <!-- Botón Nueva Reparación -->
@@ -23,7 +42,7 @@
                         </select>
                     </div>
                     <div class="col-md-3">
-                        <input type="text" class="form-control" placeholder="Buscar por cliente..." id="buscarCliente">
+                        <input type="text" class="form-control" placeholder="Buscar por cliente o DNI/CUIL..." id="buscarCliente">
                     </div>
                     <div class="col-md-3">
                         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#nuevaReparacionModal">
@@ -57,6 +76,11 @@
                                     {{ 'disabled' if reparacion.reclamado_por_id and reparacion.reclamado_por_id != current_user.id }}>
                                 <i class="bx bx-user-check"></i>
                                 {{ 'Liberar' if reparacion.reclamado_por_id == current_user.id else 'Reclamar' }}
+                            </button>
+                            <button class="btn btn-outline-info btn-sm" 
+                                    onclick="verNotasReparacion({{ reparacion.id }}, '{{ reparacion.cliente }}')"
+                                    title="Ver notas">
+                                <i class="bx bx-note"></i>
                             </button>
                             {% if reparacion.reclamado_por %}
                             <small class="text-muted">
@@ -331,6 +355,32 @@
         </div>
     </div>
 </div>
+
+<!-- Modal Notas Reparación -->
+<div class="modal fade" id="notasReparacionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Notas de la reparación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="notasReparacionContainer" class="d-flex flex-wrap gap-3">
+                    <!-- Las notas se cargarán aquí -->
+                </div>
+                <div id="sinNotas" class="text-center text-muted p-4" style="display: none;">
+                    <i class="bx bx-note bx-lg"></i>
+                    <p class="mt-2">No hay notas asociadas a esta reparación</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
 {% endblock %}
 
 {% block script %}
@@ -365,16 +415,19 @@ document.getElementById('buscarCliente').addEventListener('input', aplicarFiltro
 
 function aplicarFiltros() {
     const estado = document.getElementById('filtroEstado').value;
-    const cliente = document.getElementById('buscarCliente').value.toLowerCase();
+    const busqueda = document.getElementById('buscarCliente').value.toLowerCase();
     
     document.querySelectorAll('#listaReparaciones .col-md-4').forEach(card => {
         const cardEstado = card.querySelector('.badge').textContent.toLowerCase();
         const cardCliente = card.querySelector('.card-header h5').textContent.toLowerCase();
+        const cardDniCuil = card.querySelector('[data-dni-cuil]').getAttribute('data-dni-cuil').toLowerCase();
         
         const cumpleEstado = !estado || cardEstado === estado;
-        const cumpleCliente = !cliente || cardCliente.includes(cliente);
+        const cumpleBusqueda = !busqueda || 
+                              cardCliente.includes(busqueda) || 
+                              cardDniCuil.includes(busqueda);
         
-        card.style.display = cumpleEstado && cumpleCliente ? '' : 'none';
+        card.style.display = cumpleEstado && cumpleBusqueda ? '' : 'none';
     });
 }
 
@@ -563,6 +616,56 @@ function reclamarReparacion(id, btn) {
         alert('Error al procesar la solicitud');
     });
 }
+
+
+let currentReparacionId = null;
+let notasReparacionModal = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    notasReparacionModal = new bootstrap.Modal(document.getElementById('notasReparacionModal'));
+});
+
+function verNotasReparacion(reparacionId, clienteNombre) {
+    currentReparacionId = reparacionId;
+    document.querySelector('#notasReparacionModal .modal-title').textContent = 
+        `Notas de la reparación - ${clienteNombre}`;
+    
+    fetch(`/api/notas/reparacion/${reparacionId}`)
+        .then(response => response.json())
+        .then(notas => {
+            const container = document.getElementById('notasReparacionContainer');
+            const sinNotas = document.getElementById('sinNotas');
+            container.innerHTML = '';
+            
+            if (notas.length === 0) {
+                sinNotas.style.display = 'block';
+                container.style.display = 'none';
+            } else {
+                sinNotas.style.display = 'none';
+                container.style.display = 'flex';
+                
+                notas.forEach(nota => {
+                    const notaHTML = `
+                        <div class="nota" style="background-color: ${nota.color}">
+                            <div class="nota-header">
+                                <span class="nota-fecha">${nota.fecha}</span>
+                                <small class="text-muted">por ${nota.usuario}</small>
+                            </div>
+                            <div class="nota-contenido">${nota.contenido}</div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', notaHTML);
+                });
+            }
+            
+            notasReparacionModal.show();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error al cargar las notas');
+        });
+}
+
 
 </script>
 {% endblock %}
