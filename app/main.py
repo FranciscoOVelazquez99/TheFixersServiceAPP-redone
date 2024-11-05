@@ -5,7 +5,7 @@ from wtforms import StringField, PasswordField, SelectField , SubmitField
 
 from wtforms.validators import DataRequired
 
-from flask_login import login_required, logout_user, LoginManager, current_user, login_user
+from flask_login import login_required, logout_user, current_user, login_user
 from sqlalchemy import extract
 from app.models.modelos import Usuario, Reparacion, Equipo, Presupuesto, Tarea, Notificacion, Documento,Nota, db
 from flask_bcrypt import Bcrypt
