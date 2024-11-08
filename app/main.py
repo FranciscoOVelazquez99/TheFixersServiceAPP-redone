@@ -26,9 +26,10 @@ def get_app_path():
     return os.path.dirname(os.path.abspath(__file__))
 
 APP_PATH = get_app_path()
-PDF_PATH = os.path.join(APP_PATH, 'static', 'PDFs')
-UPLOAD_FOLDER_AVATARS = os.path.join(APP_PATH, 'static', 'uploads', 'avatars')
-UPLOAD_FOLDER_EQUIPOS = os.path.join(APP_PATH, 'static', 'uploads', 'equipos')
+STATIC_PATH = os.path.join(APP_PATH, 'static')
+PDF_PATH = os.path.join(STATIC_PATH, 'PDFs')
+UPLOAD_FOLDER_AVATARS = os.path.join(STATIC_PATH, 'uploads', 'avatars')
+UPLOAD_FOLDER_EQUIPOS = os.path.join(STATIC_PATH, 'uploads', 'equipos')
 
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'jfif'}
 
@@ -77,15 +78,14 @@ def crear_notificacion(usuario_id, tipo, mensaje, referencia_id=None):
         return False
 
 
+# Modificar la ruta para servir archivos estáticos
+@main_bp.route('/static/<path:filename>')
+def serve_static(filename):
+    return send_from_directory(STATIC_PATH, filename)
+
 @main_bp.route('/')
 def index():
     return redirect(url_for('main.login'))
-
-@main_bp.route('/static/')
-def serve_static(path):
-    return send_from_directory(
-        main_bp.static_folder,path, as_attachment=True
-    )
 
 @main_bp.route('/login', methods=['GET', 'POST']) 
 def login():
