@@ -175,33 +175,53 @@ def get_estadisticas_reparaciones():
 @login_required
 def get_estadisticas_facturacion():
     try:
-        # Obtener datos de los últimos 6 meses
-        fecha_inicio = datetime.now() - timedelta(days=180)
+        # Obtener fecha actual y fecha de hace 6 meses
+        fecha_actual = datetime.now()
+        fecha_inicio = fecha_actual - timedelta(days=180)
+        
+        # Crear diccionario con los últimos 6 meses inicializados en 0
+        datos_por_mes = {}
+        for i in range(6):
+            fecha_mes = fecha_actual - timedelta(days=30 * i)
+            mes_key = fecha_mes.strftime('%Y-%m')
+            datos_por_mes[mes_key] = 0
+        
+        # Obtener presupuestos aprobados
         presupuestos = Presupuesto.query.filter(
             Presupuesto.fecha_creacion >= fecha_inicio,
             Presupuesto.aprobado == True
         ).all()
         
-        # Agrupar por mes
-        datos_por_mes = {}
+        # Actualizar montos donde haya datos
         for p in presupuestos:
             mes = p.fecha_creacion.strftime('%Y-%m')
-            if mes not in datos_por_mes:
-                datos_por_mes[mes] = 0
-            datos_por_mes[mes] += p.total
+            if mes in datos_por_mes:  # Solo actualizar si está en los últimos 6 meses
+                datos_por_mes[mes] += p.total
         
-        # Ordenar por mes
+        # Ordenar meses de más antiguo a más reciente
         meses_ordenados = sorted(datos_por_mes.keys())
         
+        # Formatear las etiquetas de los meses en español
+        def formato_mes_esp(fecha_str):
+            meses = {
+                'January': 'Enero', 'February': 'Febrero', 'March': 'Marzo',
+                'April': 'Abril', 'May': 'Mayo', 'June': 'Junio',
+                'July': 'Julio', 'August': 'Agosto', 'September': 'Septiembre',
+                'October': 'Octubre', 'November': 'Noviembre', 'December': 'Diciembre'
+            }
+            fecha = datetime.strptime(fecha_str, '%Y-%m')
+            mes_eng = fecha.strftime('%B')
+            mes_esp = meses[mes_eng]
+            return f"{mes_esp} {fecha.strftime('%Y')}"
+        
         return jsonify({
-            'labels': [datetime.strptime(m, '%Y-%m').strftime('%B %Y') for m in meses_ordenados],
+            'labels': [formato_mes_esp(m) for m in meses_ordenados],
             'datos': [datos_por_mes[m] for m in meses_ordenados]
         })
+        
     except Exception as e:
         print(f"Error en get_estadisticas_facturacion: {str(e)}")  # Para debugging
         return jsonify({'error': str(e)}), 500
-
-
 
 @main_bp.route('/register', methods=['GET', 'POST'])
 @login_required
