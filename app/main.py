@@ -20,9 +20,16 @@ from werkzeug.utils import secure_filename
 
 from datetime import datetime, timedelta
 
-PDF_PATH = 'static/PDFs'
-UPLOAD_FOLDER_AVATARS = 'app/static/uploads/avatars'
-UPLOAD_FOLDER_EQUIPOS = 'app/static/uploads/equipos'
+def get_app_path():
+    if getattr(sys, 'frozen', False):
+        return os.path.dirname(sys.executable)
+    return os.path.dirname(os.path.abspath(__file__))
+
+APP_PATH = get_app_path()
+PDF_PATH = os.path.join(APP_PATH, 'static', 'PDFs')
+UPLOAD_FOLDER_AVATARS = os.path.join(APP_PATH, 'static', 'uploads', 'avatars')
+UPLOAD_FOLDER_EQUIPOS = os.path.join(APP_PATH, 'static', 'uploads', 'equipos')
+
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'jfif'}
 
 
@@ -218,7 +225,7 @@ def register():
                 if file and allowed_file(file.filename):
                     filename = secure_filename(file.filename)
                     if not os.path.exists(UPLOAD_FOLDER_AVATARS):
-                        os.makedirs(UPLOAD_FOLDER_AVATARS)
+                        os.makedirs(UPLOAD_FOLDER_AVATARS, exist_ok=True)
                     file.save(os.path.join(UPLOAD_FOLDER_AVATARS, filename))
                     avatar_path = f'uploads/avatars/{filename}'
             
@@ -275,7 +282,7 @@ def editar_usuario(id):
                     
             filename = secure_filename(file.filename)
             if not os.path.exists(UPLOAD_FOLDER_AVATARS):
-                os.makedirs(UPLOAD_FOLDER_AVATARS)
+                os.makedirs(UPLOAD_FOLDER_AVATARS, exist_ok=True)
             file.save(os.path.join(UPLOAD_FOLDER_AVATARS, filename))
             usuario.avatar = f'uploads/avatars/{filename}'
     
@@ -465,7 +472,7 @@ def agregar_equipo():
             if file and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
                 if not os.path.exists(UPLOAD_FOLDER_EQUIPOS):
-                    os.makedirs(UPLOAD_FOLDER_EQUIPOS)
+                    os.makedirs(UPLOAD_FOLDER_EQUIPOS, exist_ok=True)
                 file.save(os.path.join(UPLOAD_FOLDER_EQUIPOS, filename))
                 imagen_path = f'uploads/equipos/{filename}'
             else:
@@ -506,7 +513,7 @@ def editar_equipo(id):
                 
                 filename = secure_filename(file.filename)
                 if not os.path.exists(UPLOAD_FOLDER_EQUIPOS):
-                    os.makedirs(UPLOAD_FOLDER_EQUIPOS)
+                    os.makedirs(UPLOAD_FOLDER_EQUIPOS, exist_ok=True)
                 file.save(os.path.join(UPLOAD_FOLDER_EQUIPOS, filename))
                 equipo.img_equipo = f'uploads/equipos/{filename}'
         

@@ -23,6 +23,7 @@ SolidCompression=yes
 WizardStyle=modern
 DisableFinishedPage=no
 DisableProgramGroupPage=yes
+PrivilegesRequired=admin
 
 [Languages]
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -39,6 +40,14 @@ Name: "{group}\Iniciar {#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFil
 Name: "{commondesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\FixLogo.ico"
 Name: "{group}\Detener {#MyAppName}"; Filename: "{app}\stop_app.vbs"; IconFilename: "{sys}\shell32.dll"; IconIndex: 131
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
+
+[Dirs]
+Name: "{app}\static"
+Name: "{app}\static\uploads"
+Name: "{app}\static\uploads\avatars"; Permissions: users-modify
+Name: "{app}\static\uploads\equipos"; Permissions: users-modify
+Name: "{app}\static\PDFs"; Permissions: users-modify
+
 
 [Code]
 procedure CreateStopScript();
@@ -62,6 +71,33 @@ begin
   if CurStep = ssPostInstall then
   begin
     CreateStopScript();
+  end;
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  UploadDirs: array of string;
+  I: Integer;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    CreateStopScript();
+    
+    // Asegurar permisos de escritura en directorios de uploads
+    UploadDirs := [
+      ExpandConstant('{app}\static\uploads'),
+      ExpandConstant('{app}\static\uploads\avatars'),
+      ExpandConstant('{app}\static\uploads\equipos'),
+      ExpandConstant('{app}\static\PDFs')
+    ];
+    
+    for I := 0 to GetArrayLength(UploadDirs) - 1 do
+    begin
+      if not DirExists(UploadDirs[I]) then
+        CreateDir(UploadDirs[I]);
+      // Dar permisos completos a Users
+      Exec('icacls.exe', '"' + UploadDirs[I] + '" /grant Users:(OI)(CI)F', '', SW_HIDE, ewWaitUntilTerminated, I);
+    end;
   end;
 end;
 

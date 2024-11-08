@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+import os
 
 # Inicializar SQLAlchemy
 db = SQLAlchemy()
@@ -15,6 +16,14 @@ def create_app():
     login_manager.init_app(app)
     login_manager.login_view = 'main.login'
     
+        # Configurar ruta estática para uploads
+    app.config['UPLOAD_FOLDER'] = os.path.join(app.root_path, 'static', 'uploads')
+    
+    # Si la app está congelada (instalada), ajustar la ruta estática
+    if getattr(sys, 'frozen', False):
+        app.static_folder = os.path.join(os.path.dirname(sys.executable), 'static')
+    
+
     # Verificar y crear la base de datos si es necesario
     with app.app_context():
         from app.database import verificar_base_datos
