@@ -93,4 +93,4 @@ begin
 end;
 
 [UninstallDelete]
-Type: files; Name: "{app}\stop_app.vbs"
+Type: filesandordirs; Name: "{app}"
