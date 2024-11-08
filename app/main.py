@@ -175,35 +175,30 @@ def get_estadisticas_reparaciones():
 @login_required
 def get_estadisticas_facturacion():
     try:
-        # Obtener los últimos 6 meses
-        hoy = datetime.now()
-        meses = []
-        datos = []
+        # Obtener datos de los últimos 6 meses
+        fecha_inicio = datetime.now() - timedelta(days=180)
+        presupuestos = Presupuesto.query.filter(
+            Presupuesto.fecha_creacion >= fecha_inicio,
+            Presupuesto.aprobado == True
+        ).all()
         
-        for i in range(5, -1, -1):
-            fecha_inicio = (hoy - timedelta(days=30*i)).replace(day=1, hour=0, minute=0, second=0)
-            if i > 0:
-                fecha_fin = (hoy - timedelta(days=30*(i-1))).replace(day=1, hour=0, minute=0, second=0)
-            else:
-                fecha_fin = hoy
-                
-            # Obtener facturación del mes
-            facturacion = db.session.query(
-                db.func.sum(Presupuesto.total)
-            ).filter(
-                Presupuesto.fecha_creacion >= fecha_inicio,
-                Presupuesto.fecha_creacion < fecha_fin,
-                Presupuesto.aprobado == True
-            ).scalar() or 0
-            
-            meses.append(fecha_inicio.strftime('%B %Y'))
-            datos.append(float(facturacion))
-            
+        # Agrupar por mes
+        datos_por_mes = {}
+        for p in presupuestos:
+            mes = p.fecha_creacion.strftime('%Y-%m')
+            if mes not in datos_por_mes:
+                datos_por_mes[mes] = 0
+            datos_por_mes[mes] += p.total
+        
+        # Ordenar por mes
+        meses_ordenados = sorted(datos_por_mes.keys())
+        
         return jsonify({
-            'labels': meses,
-            'datos': datos
+            'labels': [datetime.strptime(m, '%Y-%m').strftime('%B %Y') for m in meses_ordenados],
+            'datos': [datos_por_mes[m] for m in meses_ordenados]
         })
     except Exception as e:
+        print(f"Error en get_estadisticas_facturacion: {str(e)}")  # Para debugging
         return jsonify({'error': str(e)}), 500
 
 

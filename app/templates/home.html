@@ -198,7 +198,16 @@ async function cargarGraficoReparaciones() {
 async function cargarGraficoFacturacion() {
     try {
         const response = await fetch('/api/estadisticas/facturacion');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const data = await response.json();
+        console.log('Datos de facturación:', data); // Para debugging
+        
+        if (!data.labels || !data.datos) {
+            console.error('Datos incompletos:', data);
+            return;
+        }
         
         const ctx = document.getElementById('facturacionChart').getContext('2d');
         new Chart(ctx, {
