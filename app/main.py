@@ -346,7 +346,11 @@ def nueva_reparacion():
             estado='Pendiente'
         )
 
-        # Crear notificación para el técnico asignado
+        # Primero guardamos la reparación para obtener su ID
+        db.session.add(nueva_reparacion)
+        db.session.commit()
+
+        # Ahora que tenemos el ID, creamos la notificación
         if nueva_reparacion.tecnico:
             usuario = Usuario.query.filter_by(usuario=nueva_reparacion.tecnico).first()
             if usuario:
@@ -354,13 +358,12 @@ def nueva_reparacion():
                     usuario_id=usuario.id,
                     tipo='reparacion',
                     mensaje=f'Se te ha asignado una nueva reparación: {nueva_reparacion.descripcion}',
-                    referencia_id=nueva_reparacion.id
+                    referencia_id=nueva_reparacion.id  # Ahora sí tenemos el ID
                 )
 
-        db.session.add(nueva_reparacion)
-        db.session.commit()
         flash('Reparación creada exitosamente', 'success')
     except Exception as e:
+        db.session.rollback()  # Agregamos rollback en caso de error
         flash(f'Error al crear la reparación: {str(e)}', 'danger')
     return redirect(url_for('main.reparaciones'))
 
@@ -369,29 +372,49 @@ def nueva_reparacion():
 def editar_reparacion(id):
     try:
         reparacion = Reparacion.query.get_or_404(id)
+        
+        # Guardar el técnico anterior antes de actualizar
+        tecnico_anterior = reparacion.tecnico
+        
+        # Actualizar datos de la reparación
         reparacion.cliente = request.form['cliente']
         reparacion.dni_cuil = request.form['dni_cuil']
         reparacion.telefono = request.form['telefono']
         reparacion.email = request.form['email']
         reparacion.descripcion = request.form['descripcion']
-        reparacion.tecnico = request.form['tecnico'] if request.form['tecnico'] else None
         reparacion.estado = request.form['estado']
         
-        # Crear notificación para el técnico asignado
-        print(reparacion.id)
-        if reparacion.tecnico:
-            usuario = Usuario.query.filter_by(usuario=reparacion.tecnico).first()
-            if usuario:
-                crear_notificacion(
-                    usuario_id=usuario.id,
-                    tipo='reparacion',
-                    mensaje=f'Se te ha asignado una nueva reparación: {reparacion.descripcion}',
-                    referencia_id=reparacion.id
-                )
+        nuevo_tecnico = request.form['tecnico'] if request.form['tecnico'] else None
+        reparacion.tecnico = nuevo_tecnico
+        
+        # Verificar si hubo cambio de técnico
+        if nuevo_tecnico != tecnico_anterior:
+            # Notificar al nuevo técnico si existe
+            if nuevo_tecnico:
+                nuevo_usuario = Usuario.query.filter_by(usuario=nuevo_tecnico).first()
+                if nuevo_usuario:
+                    crear_notificacion(
+                        usuario_id=nuevo_usuario.id,
+                        tipo='reparacion',
+                        mensaje=f'Se te ha asignado una nueva reparación: {reparacion.descripcion}',
+                        referencia_id=reparacion.id
+                    )
+            
+            # Notificar al técnico anterior si existía
+            if tecnico_anterior:
+                usuario_anterior = Usuario.query.filter_by(usuario=tecnico_anterior).first()
+                if usuario_anterior:
+                    crear_notificacion(
+                        usuario_id=usuario_anterior.id,
+                        tipo='reparacion',
+                        mensaje=f'La reparación "{reparacion.descripcion}" ha sido reasignada a {nuevo_tecnico if nuevo_tecnico else "otro técnico"}',
+                        referencia_id=reparacion.id
+                    )
         
         db.session.commit()
         flash('Reparación actualizada exitosamente', 'success')
     except Exception as e:
+        db.session.rollback()
         flash(f'Error al actualizar la reparación: {str(e)}', 'danger')
     return redirect(url_for('main.reparaciones'))
 
@@ -774,7 +797,6 @@ def get_tareas():
 @login_required
 def crear_tarea():
     try:
-
         fecha_vencimiento = None
         if request.form.get('fecha_vencimiento'):
             try:
@@ -785,13 +807,18 @@ def crear_tarea():
         nueva_tarea = Tarea(
             titulo=request.form['titulo'],
             descripcion=request.form['descripcion'],
-            estado='pendiente',  # Agregar estado inicial
+            estado='pendiente',
             prioridad=request.form['prioridad'],
             asignado_a_id=request.form['asignado_a_id'],
             creado_por_id=current_user.id,
             fecha_vencimiento=fecha_vencimiento
         )
-                # Crear notificación para el usuario asignado
+        
+        # Primero guardamos la tarea para obtener su ID
+        db.session.add(nueva_tarea)
+        db.session.commit()
+        
+        # Ahora que tenemos el ID, creamos la notificación
         if nueva_tarea.asignado_a_id:
             crear_notificacion(
                 usuario_id=nueva_tarea.asignado_a_id,
@@ -800,15 +827,12 @@ def crear_tarea():
                 referencia_id=nueva_tarea.id
             )
         
-        db.session.add(nueva_tarea)
-        db.session.commit()
-        
         return jsonify({'success': True})
     except Exception as e:
         db.session.rollback()
         flash(f'Error al crear la tarea: {str(e)}', 'danger')
         return jsonify({'success': False, 'error': str(e)})
-
+    
 @main_bp.route('/api/tareas/<int:id>/estado', methods=['PUT'])
 @login_required
 def actualizar_estado_tarea(id):
