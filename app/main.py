@@ -201,11 +201,7 @@ def get_estadisticas_facturacion():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@main_bp.route('/static/')
-def serve_static(path):
-    return send_from_directory(
-        main_bp.static_folder,path, as_attachment=True
-  )
+
 
 @main_bp.route('/register', methods=['GET', 'POST'])
 @login_required
