@@ -1,5 +1,11 @@
 # TheFixersServiceAPP-redone
 
-# Muchas cosas faltan por hacer, pero se puede usar como base para un proyecto real.
+# 8/11/24
 
+-Se corrigio la creacion de notificaciones de algunas funciones.
+-Se arreglo el porblema con los scirpts de graficos y las rutas.
+-Se arreglo un problema con los permisos y directorios(no permitian la subida de imagenes ni visualizacion).
+
+
+## Muchas cosas faltan por hacer, pero se puede usar como base para un proyecto real.
 ![Logo de TheFixers](https://raw.githubusercontent.com/FranciscoOVelazquez99/TheFixersServiceAPP-redone/main/app/static/img/FixLogo.png)
