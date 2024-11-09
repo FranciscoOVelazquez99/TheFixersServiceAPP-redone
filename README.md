@@ -2,9 +2,10 @@
 
 # 8/11/24
 
--Se corrigio la creacion de notificaciones de algunas funciones.
--Se arreglo el porblema con los scirpts de graficos y las rutas.
--Se arreglo un problema con los permisos y directorios(no permitian la subida de imagenes ni visualizacion).
+- Se corrigió la creación de notificaciones de algunas funciones.
+- Se arreglo el problema con los scripts de gráficos y las rutas.
+- Se arregló un problema con los permisos y directorios(no permitian la subida de imágenes ni visualización).
+
 
 
 ## Muchas cosas faltan por hacer, pero se puede usar como base para un proyecto real.
