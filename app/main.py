@@ -26,7 +26,7 @@ def get_app_path():
     return os.path.dirname(os.path.abspath(__file__))
 
 APP_PATH = get_app_path()
-STATIC_PATH = os.path.join(APP_PATH, 'static')
+STATIC_PATH = os.path.join(APP_PATH, 'app/static')
 PDF_PATH = os.path.join(STATIC_PATH, 'PDFs')
 UPLOAD_FOLDER_AVATARS = os.path.join(STATIC_PATH, 'uploads', 'avatars')
 UPLOAD_FOLDER_EQUIPOS = os.path.join(STATIC_PATH, 'uploads', 'equipos')

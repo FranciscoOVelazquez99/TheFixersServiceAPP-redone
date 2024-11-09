@@ -20,7 +20,7 @@ def create_app():
     if getattr(sys, 'frozen', False):
         # Si está instalada, usar la ruta del ejecutable
         base_dir = os.path.dirname(sys.executable)
-        app.static_folder = os.path.join(base_dir, 'static')
+        app.static_folder = os.path.join(base_dir,'app', 'static')
         app.template_folder = os.path.join(base_dir, 'app', 'templates')
     else:
         # En desarrollo, usar rutas relativas

@@ -33,8 +33,6 @@ Source: "C:\Users\Francisco\Desktop\TheFixersService\dist\TheFixersService.exe";
 Source: "C:\Users\Francisco\Desktop\TheFixersService\README.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\Francisco\Desktop\TheFixersService\requirements.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "C:\Users\Francisco\Desktop\TheFixersService\app\*"; DestDir: "{app}\app"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\Francisco\Desktop\TheFixersService\app\templates\*"; DestDir: "{app}\app\templates"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "C:\Users\Francisco\Desktop\TheFixersService\app\static\*"; DestDir: "{app}\static"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "C:\Users\Francisco\Desktop\TheFixersService\FixLogo.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
@@ -44,11 +42,11 @@ Name: "{group}\Detener {#MyAppName}"; Filename: "{app}\stop_app.vbs"; IconFilena
 Name: "{group}\{cm:UninstallProgram,{#MyAppName}}"; Filename: "{uninstallexe}"
 
 [Dirs]
-Name: "{app}\static"
-Name: "{app}\static\uploads"
-Name: "{app}\static\uploads\avatars"; Permissions: users-modify
-Name: "{app}\static\uploads\equipos"; Permissions: users-modify
-Name: "{app}\static\PDFs"; Permissions: users-modify
+Name: "{app}\app\static"
+Name: "{app}\app\static\uploads"
+Name: "{app}\app\static\uploads\avatars"; Permissions: users-modify
+Name: "{app}\app\static\uploads\equipos"; Permissions: users-modify
+Name: "{app}\app\static\PDFs"; Permissions: users-modify
 
 [Code]
 procedure CreateStopScript();
