@@ -19,3 +19,8 @@ WTForms==3.2.1
 chardet==5.2.0
 pillow==11.0.0
 reportlab==4.2.5
+PyQt5==5.15.11
+PyQt5-Qt5==5.15.2
+PyQt5_sip==12.15.0
+pywin32==308
+waitress==3.0.1
