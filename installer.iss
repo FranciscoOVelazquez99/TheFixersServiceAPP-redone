@@ -67,14 +67,6 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-begin
-  if CurStep = ssPostInstall then
-  begin
-    CreateStopScript();
-  end;
-end;
-
-procedure CurStepChanged(CurStep: TSetupStep);
 var
   UploadDirs: array of string;
   I: Integer;

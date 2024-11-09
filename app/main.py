@@ -15,7 +15,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
-import os
+import os, sys
 from werkzeug.utils import secure_filename
 
 from datetime import datetime, timedelta
@@ -81,6 +81,11 @@ def crear_notificacion(usuario_id, tipo, mensaje, referencia_id=None):
 def index():
     return redirect(url_for('main.login'))
 
+@main_bp.route('/static/')
+def serve_static(path):
+    return send_from_directory(
+        main_bp.static_folder,path, as_attachment=True
+    )
 
 @main_bp.route('/login', methods=['GET', 'POST']) 
 def login():
