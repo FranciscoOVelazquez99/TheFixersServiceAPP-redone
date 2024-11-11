@@ -5,15 +5,42 @@ app = create_app()
 import sys
 import os
 import socket
-from PyQt5.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+from PyQt5.QtWidgets import (QApplication, QSystemTrayIcon, QMenu, QMessageBox, 
+                           QDialog, QVBoxLayout, QLabel, QProgressBar)
 from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSharedMemory
+from PyQt5.QtCore import QSharedMemory,QTimer,Qt
 from threading import Thread
 from waitress import serve
 import webbrowser
 import win32console
 import win32gui
 import win32con
+
+
+class StartupDialog(QDialog):
+    def __init__(self, host, port):
+        super().__init__()
+        self.setWindowTitle("The Fixers Service")
+        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
+        self.setFixedSize(400, 150)
+        
+        layout = QVBoxLayout()
+        
+        self.status_label = QLabel(f"Iniciando The Fixers Service en\nhttp://{host}:{port}")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.status_label)
+        
+        self.progress = QProgressBar()
+        self.progress.setMaximum(0)
+        self.progress.setMinimum(0)
+        layout.addWidget(self.progress)
+        
+        self.setLayout(layout)
+        
+        # Auto-cerrar después de 3 segundos
+        QTimer.singleShot(3000, self.close)
+
+
 
 def get_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -30,7 +57,6 @@ def run_flask():
     host = get_ip()
     port = 6969
     try:
-        print(f"Aplicación ejecutándose en http://{host}:{port}")
         serve(app, host=host, port=port)
     except Exception as e:
         print(f"Error al iniciar el servidor: {e}")
@@ -66,7 +92,16 @@ if __name__ == "__main__":
 
     shared_memory = QSharedMemory("FixServUniqueKey")
     if shared_memory.attach():
-        print("La aplicación ya está en ejecución.")
+        app = QApplication(sys.argv)
+        dialog = QDialog()
+        dialog.setWindowTitle("The Fixers Service")
+        dialog.setFixedSize(300, 100)
+        layout = QVBoxLayout()
+        label = QLabel("La aplicación ya está en ejecución.")
+        label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(label)
+        dialog.setLayout(layout)
+        dialog.exec_()
         sys.exit(0)
 
     if not shared_memory.create(1):
@@ -78,9 +113,16 @@ if __name__ == "__main__":
     flask_thread.daemon = True
     flask_thread.start()
 
+
+
     # Inicia la aplicación Qt para el icono de bandeja del sistema
     qt_app = QApplication(sys.argv)
     qt_app.setQuitOnLastWindowClosed(False)
+
+    host=get_ip()
+    port = 6969
+    dialog = StartupDialog(host, port)
+    dialog.show()
 
     icon_path = os.path.join(os.path.dirname(sys.executable), "FixLogo.ico")
     icon = QIcon(icon_path)
