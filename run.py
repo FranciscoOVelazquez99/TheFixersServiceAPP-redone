@@ -6,9 +6,9 @@ import sys
 import os
 import socket
 from PyQt5.QtWidgets import (QApplication, QSystemTrayIcon, QMenu, QMessageBox, 
-                           QDialog, QVBoxLayout, QLabel, QProgressBar)
-from PyQt5.QtGui import QIcon
-from PyQt5.QtCore import QSharedMemory,QTimer,Qt
+                           QDialog, QVBoxLayout, QLabel, QProgressBar, QFrame)
+from PyQt5.QtGui import QIcon, QPixmap
+from PyQt5.QtCore import QSharedMemory, QTimer, Qt, QSize
 from threading import Thread
 from waitress import serve
 import webbrowser
@@ -22,24 +22,121 @@ class StartupDialog(QDialog):
         super().__init__()
         self.setWindowTitle("The Fixers Service")
         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.CustomizeWindowHint | Qt.WindowTitleHint)
-        self.setFixedSize(400, 150)
+        self.setFixedSize(400, 300)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: white;
+            }
+            QLabel#title {
+                color: #2c3e50;
+                font-size: 16px;
+                font-weight: bold;
+            }
+            QLabel#status {
+                color: #34495e;
+                font-size: 14px;
+            }
+            QProgressBar {
+                border: 2px solid #bdc3c7;
+                border-radius: 5px;
+                text-align: center;
+                height: 25px;
+            }
+            QProgressBar::chunk {
+                background-color: #3498db;
+                border-radius: 5px;
+            }
+        """)
         
         layout = QVBoxLayout()
+        layout.setSpacing(15)
+        layout.setContentsMargins(20, 20, 20, 20)
         
-        self.status_label = QLabel(f"Iniciando The Fixers Service en\nhttp://{host}:{port}")
+        # Logo
+        logo_label = QLabel()
+        logo_path = os.path.join(os.path.dirname(sys.executable), "FixLogo.ico")
+        pixmap = QIcon(logo_path).pixmap(QSize(100, 100))
+        logo_label.setPixmap(pixmap)
+        logo_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(logo_label)
+        
+        # Título
+        title_label = QLabel("The Fixers Service")
+        title_label.setObjectName("title")
+        title_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(title_label)
+        
+        # Línea separadora
+        line = QFrame()
+        line.setFrameShape(QFrame.HLine)
+        line.setFrameShadow(QFrame.Sunken)
+        line.setStyleSheet("background-color: #bdc3c7;")
+        layout.addWidget(line)
+        
+        # Estado
+        self.status_label = QLabel(f"Iniciando servicio en\nhttp://{host}:{port}")
+        self.status_label.setObjectName("status")
         self.status_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.status_label)
         
+        # Barra de progreso
         self.progress = QProgressBar()
         self.progress.setMaximum(0)
         self.progress.setMinimum(0)
+        self.progress.setTextVisible(False)
         layout.addWidget(self.progress)
         
         self.setLayout(layout)
         
-        # Auto-cerrar después de 3 segundos
-        QTimer.singleShot(3000, self.close)
+        # Efecto de fade out al cerrar
+        self.opacity = 1.0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.fade_out)
+        QTimer.singleShot(2500, self.start_fade_out)
 
+    def start_fade_out(self):
+        self.timer.start(50)  # Actualizar cada 50ms
+
+    def fade_out(self):
+        self.opacity -= 0.1
+        if self.opacity <= 0:
+            self.timer.stop()
+            self.close()
+        else:
+            self.setWindowOpacity(self.opacity)
+
+# También mejorar el diálogo de "ya está en ejecución"
+def show_already_running_dialog():
+    dialog = QDialog()
+    dialog.setWindowTitle("The Fixers Service")
+    dialog.setFixedSize(300, 150)
+    dialog.setStyleSheet("""
+        QDialog {
+            background-color: white;
+        }
+        QLabel {
+            color: #2c3e50;
+            font-size: 14px;
+        }
+    """)
+    
+    layout = QVBoxLayout()
+    layout.setSpacing(15)
+    layout.setContentsMargins(20, 20, 20, 20)
+    
+    icon_label = QLabel()
+    icon_path = os.path.join(os.path.dirname(sys.executable), "FixLogo.ico")
+    pixmap = QIcon(icon_path).pixmap(QSize(50, 50))
+    icon_label.setPixmap(pixmap)
+    icon_label.setAlignment(Qt.AlignCenter)
+    layout.addWidget(icon_label)
+    
+    label = QLabel("La aplicación ya está en ejecución.")
+    label.setAlignment(Qt.AlignCenter)
+    layout.addWidget(label)
+    
+    dialog.setLayout(layout)
+    return dialog
 
 
 def get_ip():
@@ -93,15 +190,9 @@ if __name__ == "__main__":
     shared_memory = QSharedMemory("FixServUniqueKey")
     if shared_memory.attach():
         app = QApplication(sys.argv)
-        dialog = QDialog()
-        dialog.setWindowTitle("The Fixers Service")
-        dialog.setFixedSize(300, 100)
-        layout = QVBoxLayout()
-        label = QLabel("La aplicación ya está en ejecución.")
-        label.setAlignment(Qt.AlignCenter)
-        layout.addWidget(label)
-        dialog.setLayout(layout)
+        dialog = show_already_running_dialog()
         dialog.exec_()
+        sys.exit(0)
         sys.exit(0)
 
     if not shared_memory.create(1):
